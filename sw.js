@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bonus-navigator-v2';
+const CACHE_NAME = 'bonus-navigator-v3';
 const urlsToCache = [
   './',
   './index.html',
@@ -57,33 +57,29 @@ self.addEventListener('fetch', (event) => {
           return caches.match(event.request);
         })
     );
-  } 
-  // Для остальных файлов - cache first
+  }
+  // Для страниц и статических файлов - network first, чтобы не застревать на старом JS/CSS
   else {
     event.respondWith(
-      caches.match(event.request)
+      fetch(event.request)
         .then((response) => {
-          if (response) {
-            return response;
-          }
-          
-          return fetch(event.request)
-            .then((response) => {
-              if (!response || response.status !== 200 || response.type !== 'basic') {
-                return response;
-              }
-              
-              const responseToCache = response.clone();
-              caches.open(CACHE_NAME).then((cache) => {
-                cache.put(event.request, responseToCache);
-              });
-              
-              return response;
-            })
-            .catch(() => {
-              // Возвращаем что-то для офлайна если нужно
-              return new Response('Offline - файл не найден в кэше');
+          if (response && response.status === 200 && response.type === 'basic') {
+            const responseToCache = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseToCache);
             });
+          }
+
+          return response;
+        })
+        .catch(() => {
+          return caches.match(event.request).then((response) => {
+            if (response) {
+              return response;
+            }
+
+            return new Response('Offline - файл не найден в кэше');
+          });
         })
     );
   }
