@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+
+    <title>Bonus Navigator</title>
+
+    <meta name="theme-color" content="#2d7dff">
+    <meta name="description" content="Bonus Navigator - каталог товаров с фильтрацией">
+    
+    <link rel="manifest" href="./public/manifest.json">
+    <link rel="icon" type="image/png" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%232d7dff' width='192' height='192'/><text x='96' y='130' font-size='100' font-weight='bold' fill='white' text-anchor='middle'>BN</text></svg>">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%232d7dff' width='192' height='192'/><text x='96' y='130' font-size='100' font-weight='bold' fill='white' text-anchor='middle'>BN</text></svg>">
+
+    <link rel="stylesheet" href="assets/styles/style.css">
+
+</head>
+
+<body>
+
+<div id="app">
+
+    <!-- ========================= -->
+    <!-- Верхняя панель            -->
+    <!-- ========================= -->
+
+    <header id="header">
+
+        <h1 id="logo">
+            Bonus Navigator
+        </h1>
+
+        <span id="currentUser" class="current-user hidden" aria-live="polite"></span>
+
+        <button id="installBtn" class="install-btn hidden" aria-label="Установить приложение">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="8 17 12 21 16 17"></polyline>
+                <line x1="12" y1="12" x2="12" y2="21"></line>
+                <path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"></path>
+            </svg>
+        </button>
+
+    </header>
+
+    <div id="summary" class="summary" aria-live="polite">
+        <span id="resultCount">Загрузка товаров...</span>
+        <span id="activeFilters"></span>
+    </div>
+
+    <div id="content">
+
+        <aside id="starPanel" class="star-panel" aria-label="Фильтр по звёздам">
+            <div class="panel-title">Звёзды</div>
+            <div id="stars" class="star-list" role="group" aria-label="Выбор количества звёзд">
+                <button type="button" class="star" data-stars="1" aria-label="1 звезда">☆</button>
+                <button type="button" class="star" data-stars="2" aria-label="2 звезды">☆</button>
+                <button type="button" class="star" data-stars="3" aria-label="3 звезды">☆</button>
+                <button type="button" class="star" data-stars="4" aria-label="4 звезды">☆</button>
+                <button type="button" class="star" data-stars="5" aria-label="5 звёзд">☆</button>
+            </div>
+            <button id="categoryToggle" class="categories-toggle-side" type="button" aria-label="Открыть категории">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="8" y1="6" x2="21" y2="6"></line>
+                    <line x1="8" y1="12" x2="21" y2="12"></line>
+                    <line x1="8" y1="18" x2="21" y2="18"></line>
+                    <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                    <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                    <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                </svg>
+            </button>
+        </aside>
+
+        <section id="mainContent" class="main-content">
+            <div id="grid"></div>
+        </section>
+
+    </div>
+
+    <div id="searchBar" class="search-bar">
+        <input
+            id="search"
+            type="search"
+            placeholder="Поиск по артикулу или модели..."
+            autocomplete="off"
+            spellcheck="false"
+            aria-label="Поиск по артикулу или модели">
+        <button id="scanQrBtn" type="button" class="scan-qr-btn" aria-label="Сканировать QR код">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 3h6v6H3zM15 3h6v6h-6zM3 15h6v6H3zM17 17v-1h1v1h1v-2h-2v2zM19 19v-1h1v1zM17 19h1v1h-1z"/>
+                <line x1="9" y1="21" x2="21" y2="9"/>
+            </svg>
+        </button>
+    </div>
+
+    <button id="scrollTop" class="scroll-top" type="button" aria-label="Наверх">Наверх</button>
+
+    <!-- Install Instructions Modal -->
+    <div id="installModal" class="install-modal hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Установить приложение</h2>
+                <button id="closeInstallModal" type="button" class="close-btn" aria-label="Закрыть">×</button>
+            </div>
+            <div class="modal-body">
+                <p id="installInstructions"></p>
+            </div>
+            <div class="modal-footer">
+                <button id="confirmInstall" type="button" class="btn-primary">Установить</button>
+                <button id="cancelInstall" type="button" class="btn-secondary">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="categoryDrawer" class="category-drawer hidden" aria-hidden="true">
+        <div class="drawer-panel">
+            <div class="drawer-header">
+                <span>Категории</span>
+                <button id="closeCategoryDrawer" type="button" aria-label="Закрыть категории">×</button>
+            </div>
+            <div id="categoryList" class="category-list"></div>
+        </div>
+        <div class="drawer-backdrop" id="drawerBackdrop"></div>
+    </div>
+
+    <!-- QR Scanner Modal -->
+    <div id="qrScannerModal" class="qr-scanner-modal hidden">
+        <div class="qr-scanner-backdrop"></div>
+        <div class="qr-scanner-container">
+            <div class="qr-scanner-header">
+                <h2>Сканирование QR кода</h2>
+                <button id="closeQrScanner" type="button" class="close-btn" aria-label="Закрыть сканер">×</button>
+            </div>
+            <video id="qrVideo" width="100%" height="auto" autoplay playsinline muted webkit-playsinline style="max-height: 400px; background: #000;"></video>
+            <div class="qr-scanner-status" id="qrStatus">Разрешите доступ к камере...</div>
+            <button id="stopQrScanner" type="button" class="stop-btn" aria-label="Остановить сканирование">Остановить</button>
+        </div>
+    </div>
+
+</div>
+
+
+
+<!-- ====================================== -->
+<!-- Полноэкранный просмотр изображения     -->
+<!-- ====================================== -->
+
+<div id="viewer" class="hidden">
+
+    <div id="viewerBackground"></div>
+
+    <img
+        id="viewerImage"
+        src=""
+        alt="">
+
+</div>
+
+<div id="authModal" class="auth-modal hidden" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+    <div class="auth-backdrop"></div>
+    <div class="auth-content">
+        <h2 id="authTitle">Вход в Bonus Navigator</h2>
+        <p class="auth-subtitle">Авторизуйтесь один раз на этом устройстве</p>
+
+        <form id="authForm" class="auth-form" autocomplete="on">
+            <label class="auth-label" for="authLogin">Логин (Фамилия Имя)</label>
+            <input id="authLogin" name="username" type="text" class="auth-input" autocomplete="name" placeholder="Например: Иванов Иван" required>
+
+            <label class="auth-label" for="authPassword">Пароль</label>
+            <input id="authPassword" name="password" type="password" class="auth-input" autocomplete="current-password" required>
+
+            <div id="authError" class="auth-error" aria-live="polite"></div>
+            <button id="authSubmit" type="submit" class="btn-primary auth-submit">Войти</button>
+        </form>
+    </div>
+</div>
+
+
+
+<!-- ====================================== -->
+<!-- Шаблон карточки товара                 -->
+<!-- ====================================== -->
+
+<template id="cardTemplate">
+
+    <article class="card">
+
+        <div class="card-stars"></div>
+
+        <div class="card-image">
+
+            <img
+                class="photo"
+                src=""
+                alt=""
+                loading="lazy"
+                draggable="false">
+
+        </div>
+
+        <div class="card-meta">
+            <div class="card-article"></div>
+            <div class="card-price"></div>
+        </div>
+
+        <div class="card-model">
+
+        </div>
+
+    </article>
+
+</template>
+
+
+
+<!-- ====================================== -->
+<!-- Скрипты                                -->
+<!-- ====================================== -->
+
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script src="assets/scripts/app.js"></script>
+
+<!-- Service Worker и PWA регистрация -->
+<script>
+// Проверка HTTPS/localhost
+console.log('🔒 Протокол:', window.location.protocol);
+console.log('📍 Хост:', window.location.hostname);
+
+if (window.location.protocol === 'http:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    console.warn('⚠️ PWA работает только на HTTPS или localhost!');
+    console.warn('💡 Используй: http://localhost:5500 или ngrok для HTTPS');
+}
+
+// Регистрация Service Worker
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js', { scope: './' })
+            .then(reg => {
+                console.log('✅ Service Worker зарегистрирован:', reg);
+                console.log('📦 Scope:', reg.scope);
+            })
+            .catch(err => {
+                console.error('❌ Ошибка регистрации SW:', err);
+                console.error('Детали:', err.message);
+            });
+    });
+} else {
+    console.warn('⚠️ Service Worker не поддерживается');
+}
+
+// Логирование статуса PWA
+window.addEventListener('load', () => {
+    if ('getInstalledRelatedApps' in navigator) {
+        navigator.getInstalledRelatedApps().then(apps => {
+            console.log('📱 Установленные приложения:', apps);
+        });
+    }
+});
+
+// Отладка Install button
+console.log('🔍 Проверка Install Button:');
+const installBtn = document.getElementById('installBtn');
+console.log('Install кнопка найдена:', !!installBtn);
+console.log('Install кнопка видна:', installBtn && !installBtn.classList.contains('hidden'));
+</script>
+
+</body>
+
+</html>
