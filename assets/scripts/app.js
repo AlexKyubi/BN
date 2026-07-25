@@ -14,7 +14,7 @@ const AUTH_STORAGE_KEY = "bn_auth_ok_v1";
 const AUTH_USER_NAME_KEY = "bn_user_name_v1";
 const SHEET_URL_STORAGE_KEY = "bn_sheet_url_v1";
 const AUTH_CONFIG = {
-    defaultPassword: String(runtimeConfig.defaultPassword || "").trim(),
+    defaultPassword: String(runtimeConfig.defaultPassword || "HaierGroup").trim(),
 };
 
 const dom = {
