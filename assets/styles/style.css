@@ -190,6 +190,27 @@ body.auth-locked #viewer{
     display:none;
 }
 
+@media(max-width:650px){
+    .current-user{
+        margin-right:8px;
+        padding:6px 8px;
+        font-size:.72rem;
+        max-width:64vw;
+        white-space:normal;
+        overflow:visible;
+        text-overflow:clip;
+        line-height:1.15;
+        text-align:right;
+    }
+}
+
+@media(max-width:380px){
+    .current-user{
+        font-size:.66rem;
+        max-width:66vw;
+    }
+}
+
 .categories-toggle-side{
     width:52px;
     height:44px;

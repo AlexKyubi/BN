@@ -145,7 +145,8 @@ function renderCurrentUserName(fullName) {
         return;
     }
 
-    dom.currentUser.textContent = `Пользователь: ${safeName}`;
+    const isCompactScreen = window.matchMedia("(max-width: 650px)").matches;
+    dom.currentUser.textContent = isCompactScreen ? safeName : `Пользователь: ${safeName}`;
     dom.currentUser.classList.remove("hidden");
 }
 
