@@ -171,6 +171,9 @@
             <label class="auth-label" for="authLogin">Логин (Фамилия Имя)</label>
             <input id="authLogin" name="username" type="text" class="auth-input" autocomplete="name" placeholder="Например: Иванов Иван" required>
 
+            <label class="auth-label" for="authSheetUrl">Ссылка на Google Sheets CSV</label>
+            <input id="authSheetUrl" name="sheetUrl" type="url" class="auth-input" autocomplete="off" placeholder="https://docs.google.com/spreadsheets/d/.../export?format=csv&gid=0" required>
+
             <label class="auth-label" for="authPassword">Пароль</label>
             <input id="authPassword" name="password" type="password" class="auth-input" autocomplete="current-password" required>
 
@@ -223,6 +226,10 @@
 <!-- ====================================== -->
 
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script>
+window.BN_CONFIG = window.BN_CONFIG || {};
+</script>
+<script src="public/runtime-config.js"></script>
 <script src="assets/scripts/app.js"></script>
 
 <!-- Service Worker и PWA регистрация -->

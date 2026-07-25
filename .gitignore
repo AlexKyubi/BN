@@ -21,6 +21,7 @@ Thumbs.db
 # Cache
 node_modules/
 npm-debug.log
+public/runtime-config.js
 
 # Dependencies (if using npm)
 package-lock.json

@@ -1,7 +1,9 @@
-const GOOGLE_SHEET_URL =
-    "https://docs.google.com/spreadsheets/d/"
-    + "1e1dt81yF7OAAv3bzjW8QZIX1e43mbRZ9O3V2Anv0YLc/"
-    + "export?format=csv&gid=0";
+const runtimeConfig =
+    window.BN_CONFIG && typeof window.BN_CONFIG === "object"
+        ? window.BN_CONFIG
+        : {};
+
+const GOOGLE_SHEET_URL = String(runtimeConfig.googleSheetUrl || "").trim();
 
 const IMAGE_BASE_PATH = "images";
 const CATEGORY_ALL = "all";
@@ -10,8 +12,9 @@ const CSV_CACHE_TTL = 1000 * 60 * 60 * 6; // 6 часов
 const LOCAL_CSV_PATH = "public/products.csv";
 const AUTH_STORAGE_KEY = "bn_auth_ok_v1";
 const AUTH_USER_NAME_KEY = "bn_user_name_v1";
+const SHEET_URL_STORAGE_KEY = "bn_sheet_url_v1";
 const AUTH_CONFIG = {
-    defaultPassword: "HaierGroup",
+    defaultPassword: String(runtimeConfig.defaultPassword || "").trim(),
 };
 
 const dom = {
@@ -35,6 +38,7 @@ const dom = {
     authModal: document.getElementById("authModal"),
     authForm: document.getElementById("authForm"),
     authLogin: document.getElementById("authLogin"),
+    authSheetUrl: document.getElementById("authSheetUrl"),
     authPassword: document.getElementById("authPassword"),
     authError: document.getElementById("authError"),
 };
@@ -50,20 +54,50 @@ let appStarted = false;
 
 function isAuthorizedOnDevice() {
     try {
-        return localStorage.getItem(AUTH_STORAGE_KEY) === "1" && Boolean(loadSavedUserName());
+        return localStorage.getItem(AUTH_STORAGE_KEY) === "1"
+            && Boolean(loadSavedUserName())
+            && Boolean(getEffectiveSheetUrl());
     } catch (error) {
         console.warn("Не удалось прочитать статус авторизации:", error);
         return false;
     }
 }
 
-function saveAuthorizationOnDevice(fullName) {
+function saveAuthorizationOnDevice(fullName, sheetUrl) {
     try {
         localStorage.setItem(AUTH_STORAGE_KEY, "1");
         localStorage.setItem(AUTH_USER_NAME_KEY, fullName);
+        localStorage.setItem(SHEET_URL_STORAGE_KEY, sheetUrl);
     } catch (error) {
         console.warn("Не удалось сохранить статус авторизации:", error);
     }
+}
+
+function loadSavedSheetUrl() {
+    try {
+        return (localStorage.getItem(SHEET_URL_STORAGE_KEY) || "").trim();
+    } catch (error) {
+        console.warn("Не удалось прочитать ссылку таблицы:", error);
+        return "";
+    }
+}
+
+function getEffectiveSheetUrl() {
+    const saved = loadSavedSheetUrl();
+    if (saved) {
+        return saved;
+    }
+    return GOOGLE_SHEET_URL;
+}
+
+function isValidGoogleSheetCsvUrl(value) {
+    const url = String(value || "").trim();
+    if (!url) {
+        return false;
+    }
+
+    const pattern = /^https:\/\/docs\.google\.com\/spreadsheets\/d\/[^/]+\/export\?format=csv(&gid=\d+)?$/i;
+    return pattern.test(url);
 }
 
 function loadSavedUserName() {
@@ -122,6 +156,10 @@ function isValidFullName(value) {
 }
 
 function verifyCredentials(username, password) {
+    if (!AUTH_CONFIG.defaultPassword) {
+        return { ok: false, message: "Сервис не настроен: пароль входа не задан." };
+    }
+
     if (!isValidFullName(username)) {
         return { ok: false, message: "Введите логин в формате: Фамилия Имя." };
     }
@@ -154,12 +192,18 @@ function bindAuthorizationEvents() {
         event.preventDefault();
 
         const username = (dom.authLogin?.value || "").trim();
+        const sheetUrl = (dom.authSheetUrl?.value || "").trim();
         const password = dom.authPassword?.value || "";
 
         clearAuthError();
 
-        if (!username || !password) {
-            setAuthError("Введите логин и пароль.");
+        if (!username || !password || !sheetUrl) {
+            setAuthError("Введите логин, ссылку таблицы и пароль.");
+            return;
+        }
+
+        if (!isValidGoogleSheetCsvUrl(sheetUrl)) {
+            setAuthError("Введите корректную CSV-ссылку Google Sheets (формат export?format=csv&gid=...).");
             return;
         }
 
@@ -169,7 +213,7 @@ function bindAuthorizationEvents() {
             return;
         }
 
-        saveAuthorizationOnDevice(verified.fullName);
+        saveAuthorizationOnDevice(verified.fullName, sheetUrl);
         renderCurrentUserName(verified.fullName);
         hideAuthModal();
         await startApp();
@@ -190,7 +234,11 @@ async function startApp() {
 function initAuthorization() {
     bindAuthorizationEvents();
     const savedUserName = loadSavedUserName();
+    const savedSheetUrl = loadSavedSheetUrl() || GOOGLE_SHEET_URL;
     renderCurrentUserName(savedUserName);
+    if (dom.authSheetUrl && savedSheetUrl) {
+        dom.authSheetUrl.value = savedSheetUrl;
+    }
 
     if (isAuthorizedOnDevice()) {
         hideAuthModal();
@@ -1132,11 +1180,25 @@ async function loadProducts() {
     let raw = null;
     const cached = loadCsvCache();
 
-    try {
-        raw = await fetchCsvText(GOOGLE_SHEET_URL);
-        saveCsvCache(raw);
-    } catch (fetchError) {
-        console.warn("Ошибка при загрузке удалённого CSV:", fetchError);
+    const sheetUrl = getEffectiveSheetUrl();
+
+    if (sheetUrl) {
+        try {
+            raw = await fetchCsvText(sheetUrl);
+            saveCsvCache(raw);
+        } catch (fetchError) {
+            console.warn("Ошибка при загрузке удалённого CSV:", fetchError);
+            raw = cached;
+
+            if (!raw) {
+                raw = await fetchLocalCsv();
+                if (raw) {
+                    saveCsvCache(raw);
+                }
+            }
+        }
+    } else {
+        console.warn("Ссылка Google Sheets не задана, использую кеш/локальный fallback.");
         raw = cached;
 
         if (!raw) {
@@ -1148,7 +1210,7 @@ async function loadProducts() {
     }
 
     if (!raw) {
-        const message = "Не удалось загрузить CSV. Проверьте подключение к интернету или добавьте fallback-файл public/products.csv.";
+        const message = "Не удалось загрузить CSV. Проверьте ссылку Google Sheets, подключение к интернету или добавьте fallback-файл public/products.csv.";
         loadError = message;
         dom.grid.textContent = message;
         dom.resultCount.textContent = "Ошибка загрузки товаров";
