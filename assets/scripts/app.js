@@ -91,13 +91,37 @@ function getEffectiveSheetUrl() {
 }
 
 function isValidGoogleSheetCsvUrl(value) {
-    const url = String(value || "").trim();
-    if (!url) {
-        return false;
+    return Boolean(normalizeGoogleSheetCsvUrl(value));
+}
+
+function normalizeGoogleSheetCsvUrl(value) {
+    const input = String(value || "").trim();
+    if (!input) {
+        return "";
     }
 
-    const pattern = /^https:\/\/docs\.google\.com\/spreadsheets\/d\/[^/]+\/export\?format=csv(&gid=\d+)?$/i;
-    return pattern.test(url);
+    let url;
+    try {
+        url = new URL(input);
+    } catch (error) {
+        return "";
+    }
+
+    if (url.protocol !== "https:" || url.hostname !== "docs.google.com") {
+        return "";
+    }
+
+    const match = url.pathname.match(/^\/spreadsheets\/d\/([^/]+)\//i);
+    if (!match || !match[1]) {
+        return "";
+    }
+
+    const sheetId = match[1];
+    const hashGidMatch = (url.hash || "").match(/gid=(\d+)/i);
+    const gid = (url.searchParams.get("gid") || (hashGidMatch ? hashGidMatch[1] : "")).trim();
+    const gidPart = /^\d+$/.test(gid) ? `&gid=${gid}` : "";
+
+    return `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv${gidPart}`;
 }
 
 function loadSavedUserName() {
@@ -192,19 +216,24 @@ function bindAuthorizationEvents() {
         event.preventDefault();
 
         const username = (dom.authLogin?.value || "").trim();
-        const sheetUrl = (dom.authSheetUrl?.value || "").trim();
+        const rawSheetUrl = (dom.authSheetUrl?.value || "").trim();
         const password = dom.authPassword?.value || "";
 
         clearAuthError();
 
-        if (!username || !password || !sheetUrl) {
+        if (!username || !password || !rawSheetUrl) {
             setAuthError("Введите логин, ссылку таблицы и пароль.");
             return;
         }
 
-        if (!isValidGoogleSheetCsvUrl(sheetUrl)) {
-            setAuthError("Введите корректную CSV-ссылку Google Sheets (формат export?format=csv&gid=...).");
+        const sheetUrl = normalizeGoogleSheetCsvUrl(rawSheetUrl);
+        if (!sheetUrl) {
+            setAuthError("Введите корректную ссылку Google Sheets (edit/export). Сервис сам преобразует ее в CSV.");
             return;
+        }
+
+        if (dom.authSheetUrl) {
+            dom.authSheetUrl.value = sheetUrl;
         }
 
         const verified = verifyCredentials(username, password);
@@ -234,7 +263,7 @@ async function startApp() {
 function initAuthorization() {
     bindAuthorizationEvents();
     const savedUserName = loadSavedUserName();
-    const savedSheetUrl = loadSavedSheetUrl() || GOOGLE_SHEET_URL;
+    const savedSheetUrl = loadSavedSheetUrl();
     renderCurrentUserName(savedUserName);
     if (dom.authSheetUrl && savedSheetUrl) {
         dom.authSheetUrl.value = savedSheetUrl;
