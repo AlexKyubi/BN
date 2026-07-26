@@ -9,6 +9,8 @@ const IMAGE_BASE_PATH = "images";
 const CATEGORY_ALL = "all";
 const CSV_CACHE_KEY = "bn_csv_cache";
 const CSV_CACHE_TTL = 1000 * 60 * 60 * 6; // 6 часов
+const QUICK_RETURN_STATE_KEY = "bn_quick_return_state_v1";
+const QUICK_RETURN_TTL = 1000 * 60 * 30; // 30 минут
 const LOCAL_CSV_PATH = "public/products.csv";
 const AUTH_STORAGE_KEY = "bn_auth_ok_v1";
 const AUTH_USER_NAME_KEY = "bn_user_name_v1";
@@ -25,6 +27,10 @@ const dom = {
     activeFilters: document.getElementById("activeFilters"),
     viewer: document.getElementById("viewer"),
     viewerImage: document.getElementById("viewerImage"),
+    viewerFrame: document.getElementById("viewerFrame"),
+    viewerFrameFallback: document.getElementById("viewerFrameFallback"),
+    viewerOpenSameTab: document.getElementById("viewerOpenSameTab"),
+    viewerClose: document.getElementById("viewerClose"),
     viewerBackground: document.getElementById("viewerBackground"),
     template: document.getElementById("cardTemplate"),
     categoryToggle: document.getElementById("categoryToggle") || {},
@@ -51,6 +57,7 @@ let searchQuery = "";
 let loadError = null;
 let loadWarning = null;
 let appStarted = false;
+let pendingViewerUrl = "";
 
 function isAuthorizedOnDevice() {
     try {
@@ -257,8 +264,84 @@ async function startApp() {
 
     appStarted = true;
     bindEvents();
+    hydrateQuickReturnState();
     await loadProducts();
     renderCards();
+}
+
+function saveQuickReturnState() {
+    const uiState = {
+        activeCategory,
+        activeStars,
+        searchQuery,
+        scrollY: window.scrollY || 0,
+    };
+
+    const payload = {
+        timestamp: Date.now(),
+        uiState,
+        items,
+        categories,
+    };
+
+    try {
+        sessionStorage.setItem(QUICK_RETURN_STATE_KEY, JSON.stringify(payload));
+    } catch (error) {
+        console.warn("Не удалось сохранить состояние быстрого возврата:", error);
+    }
+}
+
+function hydrateQuickReturnState() {
+    let payload;
+    try {
+        const raw = sessionStorage.getItem(QUICK_RETURN_STATE_KEY);
+        if (!raw) {
+            return;
+        }
+        payload = JSON.parse(raw);
+    } catch (error) {
+        console.warn("Не удалось прочитать состояние быстрого возврата:", error);
+        return;
+    }
+
+    if (!payload || typeof payload !== "object") {
+        return;
+    }
+
+    if (!payload.timestamp || Date.now() - payload.timestamp > QUICK_RETURN_TTL) {
+        return;
+    }
+
+    if (Array.isArray(payload.items) && payload.items.length) {
+        items = payload.items;
+    }
+
+    if (Array.isArray(payload.categories) && payload.categories.length) {
+        categories = payload.categories;
+    }
+
+    if (Array.isArray(categories) && categories.length) {
+        createCategoryList(categories);
+    }
+
+    const uiState = payload.uiState && typeof payload.uiState === "object"
+        ? payload.uiState
+        : {};
+
+    activeCategory = uiState.activeCategory || CATEGORY_ALL;
+    activeStars = Number(uiState.activeStars || 0);
+    searchQuery = String(uiState.searchQuery || "").trim();
+    dom.search.value = searchQuery;
+
+    updateCategoryButtons();
+    updateStarsButtons();
+    renderCards();
+
+    if (Number.isFinite(uiState.scrollY) && uiState.scrollY > 0) {
+        requestAnimationFrame(() => {
+            window.scrollTo({ top: uiState.scrollY, behavior: "auto" });
+        });
+    }
 }
 
 function initAuthorization() {
@@ -663,13 +746,30 @@ function createCard(item) {
     articleEl.textContent = item.title;
     // show only article without percent
     priceEl.textContent = `#${item.article}`;
+    priceEl.classList.add("card-article-link");
+    priceEl.title = "Двойной клик: открыть в этой вкладке";
     modelEl.textContent = item.category;
+
+    priceEl.addEventListener("click", (event) => {
+        event.stopPropagation();
+    });
+
+    priceEl.addEventListener("dblclick", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const url = buildSulpakCharacteristicsUrl(item.article);
+        if (!url) {
+            return;
+        }
+
+        saveQuickReturnState();
+        window.location.assign(url);
+    });
 
     card.addEventListener("click", () => {
         if (item.image) {
-            dom.viewerImage.src = item.image;
-            dom.viewerImage.alt = item.title;
-            dom.viewer.classList.remove("hidden");
+            openViewerWithImage(item.image, item.title);
         }
     });
 
@@ -843,6 +943,16 @@ function bindEvents() {
 
     dom.viewerBackground.addEventListener("click", hideViewer);
     dom.viewerImage.addEventListener("click", hideViewer);
+    if (dom.viewerClose) {
+        dom.viewerClose.addEventListener("click", hideViewer);
+    }
+    if (dom.viewerOpenSameTab) {
+        dom.viewerOpenSameTab.addEventListener("click", () => {
+            if (pendingViewerUrl) {
+                window.location.assign(pendingViewerUrl);
+            }
+        });
+    }
     dom.scrollTop.addEventListener("click", () => {
         window.scrollTo({ top: 0, behavior: "smooth" });
     });
@@ -854,6 +964,8 @@ function bindEvents() {
             stopQrScanner();
         }
     });
+
+    window.addEventListener("pagehide", saveQuickReturnState);
 
     // QR Scanner setup
     const scanQrBtn = document.getElementById("scanQrBtn");
@@ -1193,9 +1305,67 @@ function insertArticleToSearch(articleId) {
     renderCards();
 }
 
+function buildSulpakCharacteristicsUrl(article) {
+    const normalizedArticle = String(article || "").trim().replace(/^#+/, "");
+    if (!normalizedArticle) {
+        return "";
+    }
+
+    return `https://www.sulpak.kz/g/${encodeURIComponent(normalizedArticle)}#characteristicsTab`;
+}
+
+function openViewerWithImage(imageUrl, imageAlt) {
+    pendingViewerUrl = "";
+    dom.viewerFrameFallback.classList.add("hidden");
+    dom.viewerFrame.classList.remove("active");
+    dom.viewerFrame.src = "";
+
+    dom.viewerImage.src = imageUrl;
+    dom.viewerImage.alt = imageAlt || "";
+    dom.viewerImage.classList.add("active");
+
+    dom.viewer.classList.remove("hidden");
+}
+
+function openViewerWithFrame(url) {
+    pendingViewerUrl = String(url || "");
+    dom.viewerImage.classList.remove("active");
+    dom.viewerImage.src = "";
+    dom.viewerImage.alt = "";
+
+    if (isFrameBlockedByPolicy(pendingViewerUrl)) {
+        dom.viewerFrame.classList.remove("active");
+        dom.viewerFrame.src = "";
+        dom.viewerFrameFallback.classList.remove("hidden");
+        dom.viewer.classList.remove("hidden");
+        return;
+    }
+
+    dom.viewerFrame.src = url;
+    dom.viewerFrame.classList.add("active");
+    dom.viewerFrameFallback.classList.add("hidden");
+
+    dom.viewer.classList.remove("hidden");
+}
+
+function isFrameBlockedByPolicy(url) {
+    try {
+        const parsed = new URL(String(url || ""));
+        const host = parsed.hostname.toLowerCase();
+        return host === "sulpak.kz" || host.endsWith(".sulpak.kz");
+    } catch (error) {
+        return false;
+    }
+}
+
 
 function hideViewer() {
     dom.viewer.classList.add("hidden");
+    pendingViewerUrl = "";
+    dom.viewerFrameFallback.classList.add("hidden");
+    dom.viewerFrame.classList.remove("active");
+    dom.viewerFrame.src = "";
+    dom.viewerImage.classList.remove("active");
     dom.viewerImage.src = "";
     dom.viewerImage.alt = "";
 }

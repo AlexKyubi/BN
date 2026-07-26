@@ -154,10 +154,25 @@
 
     <div id="viewerBackground"></div>
 
+    <button id="viewerClose" type="button" aria-label="Закрыть просмотр">×</button>
+
     <img
         id="viewerImage"
         src=""
         alt="">
+
+    <iframe
+        id="viewerFrame"
+        src=""
+        title="Просмотр характеристик товара"
+        loading="lazy"
+        referrerpolicy="no-referrer-when-downgrade"></iframe>
+
+    <div id="viewerFrameFallback" class="viewer-frame-fallback hidden" role="alert">
+        <h3>Встроенный просмотр недоступен</h3>
+        <p>Сайт Sulpak запрещает открытие страницы во встроенном iframe. Откройте характеристики в этой же вкладке.</p>
+        <button id="viewerOpenSameTab" type="button">Открыть в этой вкладке</button>
+    </div>
 
 </div>
 
@@ -271,9 +286,9 @@ window.addEventListener('load', () => {
 
 // Отладка Install button
 console.log('🔍 Проверка Install Button:');
-const installBtn = document.getElementById('installBtn');
-console.log('Install кнопка найдена:', !!installBtn);
-console.log('Install кнопка видна:', installBtn && !installBtn.classList.contains('hidden'));
+const installBtnDebug = document.getElementById('installBtn');
+console.log('Install кнопка найдена:', !!installBtnDebug);
+console.log('Install кнопка видна:', installBtnDebug && !installBtnDebug.classList.contains('hidden'));
 </script>
 
 </body>

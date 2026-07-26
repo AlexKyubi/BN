@@ -31,56 +31,5 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Стратегия кэширования: Network First (сначала сеть, потом кэш)
-self.addEventListener('fetch', (event) => {
-  // Игнорируем не-GET запросы
-  if (event.request.method !== 'GET') {
-    return;
-  }
-
-  // Для Google Sheets - network first
-  if (event.request.url.includes('docs.google.com')) {
-    event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          // Кэшируем успешный ответ
-          if (response && response.status === 200) {
-            const responseToCache = response.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, responseToCache);
-            });
-          }
-          return response;
-        })
-        .catch(() => {
-          // Если нет сети, берем из кэша
-          return caches.match(event.request);
-        })
-    );
-  }
-  // Для страниц и статических файлов - network first, чтобы не застревать на старом JS/CSS
-  else {
-    event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          if (response && response.status === 200 && response.type === 'basic') {
-            const responseToCache = response.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, responseToCache);
-            });
-          }
-
-          return response;
-        })
-        .catch(() => {
-          return caches.match(event.request).then((response) => {
-            if (response) {
-              return response;
-            }
-
-            return new Response('Offline - файл не найден в кэше');
-          });
-        })
-    );
-  }
-});
+// Runtime fetch-перехват отключен намеренно.
+// Это убирает overhead и предупреждение DevTools о no-op fetch handler.
