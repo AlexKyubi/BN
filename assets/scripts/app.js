@@ -35,9 +35,6 @@ const dom = {
     monthDrawerBackdrop: document.getElementById("monthDrawerBackdrop"),
     viewer: document.getElementById("viewer"),
     viewerImage: document.getElementById("viewerImage"),
-    viewerFrame: document.getElementById("viewerFrame"),
-    viewerFrameFallback: document.getElementById("viewerFrameFallback"),
-    viewerOpenSameTab: document.getElementById("viewerOpenSameTab"),
     viewerClose: document.getElementById("viewerClose"),
     viewerBackground: document.getElementById("viewerBackground"),
     template: document.getElementById("cardTemplate"),
@@ -65,9 +62,9 @@ let searchQuery = "";
 let loadError = null;
 let loadWarning = null;
 let appStarted = false;
-let pendingViewerUrl = "";
 let monthColumns = [];
 let activeMonthColumn = -1;
+let pendingQuickReturnMonthColumn = null;
 let sourceRows = [];
 let sourceBaseIndices = null;
 let sourceWarnings = [];
@@ -287,6 +284,7 @@ function saveQuickReturnState() {
         activeCategory,
         activeStars,
         searchQuery,
+        activeMonthColumn,
         scrollY: window.scrollY || 0,
     };
 
@@ -344,6 +342,9 @@ function hydrateQuickReturnState() {
     activeCategory = uiState.activeCategory || CATEGORY_ALL;
     activeStars = Number(uiState.activeStars || 0);
     searchQuery = normalizeArticleSearchInput(uiState.searchQuery || "");
+    pendingQuickReturnMonthColumn = Number.isFinite(Number(uiState.activeMonthColumn))
+        ? Number(uiState.activeMonthColumn)
+        : null;
     dom.search.value = searchQuery;
 
     updateCategoryButtons();
@@ -1173,13 +1174,6 @@ function bindEvents() {
     if (dom.viewerClose) {
         dom.viewerClose.addEventListener("click", hideViewer);
     }
-    if (dom.viewerOpenSameTab) {
-        dom.viewerOpenSameTab.addEventListener("click", () => {
-            if (pendingViewerUrl) {
-                window.location.assign(pendingViewerUrl);
-            }
-        });
-    }
     dom.scrollTop.addEventListener("click", () => {
         window.scrollTo({ top: 0, behavior: "smooth" });
     });
@@ -1544,11 +1538,6 @@ function buildSulpakCharacteristicsUrl(article) {
 }
 
 function openViewerWithImage(imageUrl, imageAlt) {
-    pendingViewerUrl = "";
-    dom.viewerFrameFallback.classList.add("hidden");
-    dom.viewerFrame.classList.remove("active");
-    dom.viewerFrame.src = "";
-
     dom.viewerImage.src = imageUrl;
     dom.viewerImage.alt = imageAlt || "";
     dom.viewerImage.classList.add("active");
@@ -1557,43 +1546,19 @@ function openViewerWithImage(imageUrl, imageAlt) {
 }
 
 function openViewerWithFrame(url) {
-    pendingViewerUrl = String(url || "");
-    dom.viewerImage.classList.remove("active");
-    dom.viewerImage.src = "";
-    dom.viewerImage.alt = "";
-
-    if (isFrameBlockedByPolicy(pendingViewerUrl)) {
-        dom.viewerFrame.classList.remove("active");
-        dom.viewerFrame.src = "";
-        dom.viewerFrameFallback.classList.remove("hidden");
-        dom.viewer.classList.remove("hidden");
+    const safeUrl = String(url || "").trim();
+    if (!safeUrl) {
         return;
     }
 
-    dom.viewerFrame.src = url;
-    dom.viewerFrame.classList.add("active");
-    dom.viewerFrameFallback.classList.add("hidden");
-
-    dom.viewer.classList.remove("hidden");
-}
-
-function isFrameBlockedByPolicy(url) {
-    try {
-        const parsed = new URL(String(url || ""));
-        const host = parsed.hostname.toLowerCase();
-        return host === "sulpak.kz" || host.endsWith(".sulpak.kz");
-    } catch (error) {
-        return false;
-    }
+    // Для ссылок характеристик открываем страницу напрямую в текущей вкладке.
+    // Это исключает iframe-ошибку и не конфликтует с просмотром фото карточки.
+    window.location.assign(safeUrl);
 }
 
 
 function hideViewer() {
     dom.viewer.classList.add("hidden");
-    pendingViewerUrl = "";
-    dom.viewerFrameFallback.classList.add("hidden");
-    dom.viewerFrame.classList.remove("active");
-    dom.viewerFrame.src = "";
     dom.viewerImage.classList.remove("active");
     dom.viewerImage.src = "";
     dom.viewerImage.alt = "";
@@ -1690,9 +1655,18 @@ async function loadProducts() {
     sourceWarnings = warnings;
 
     monthColumns = detectMonthColumns(headers);
-    activeMonthColumn = monthColumns.some((month) => month.index === DEFAULT_MONTH_COLUMN_INDEX)
+    const defaultMonthColumn = monthColumns.some((month) => month.index === DEFAULT_MONTH_COLUMN_INDEX)
         ? DEFAULT_MONTH_COLUMN_INDEX
         : (monthColumns[0]?.index ?? -1);
+
+    const hasPendingMonth = pendingQuickReturnMonthColumn !== null
+        && monthColumns.some((month) => month.index === pendingQuickReturnMonthColumn);
+
+    activeMonthColumn = hasPendingMonth
+        ? pendingQuickReturnMonthColumn
+        : defaultMonthColumn;
+
+    pendingQuickReturnMonthColumn = null;
     syncMonthSelector();
 
     rebuildItemsFromSourceRows();

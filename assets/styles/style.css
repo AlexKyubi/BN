@@ -1866,147 +1866,15 @@ body.auth-locked #viewer{
 
 }
 
-#viewerImage,
-#viewerFrame{
+#viewerImage{
 
     display:none;
 
 }
 
-#viewerImage.active,
-#viewerFrame.active{
+#viewerImage.active{
 
     display:block;
-
-}
-
-#viewerFrame{
-
-    position:relative;
-
-    z-index:2;
-
-    width:min(1100px, 96vw);
-
-    height:min(840px, 92vh);
-
-    border:0;
-
-    border-radius:16px;
-
-    background:#ffffff;
-
-    box-shadow:0 24px 80px rgba(0,0,0,.55);
-
-    animation:viewerAppear .18s ease;
-
-}
-
-#viewerClose{
-
-    position:absolute;
-
-    top:14px;
-
-    right:14px;
-
-    z-index:3;
-
-    width:42px;
-
-    height:42px;
-
-    border:0;
-
-    border-radius:999px;
-
-    background:rgba(15,23,42,.78);
-
-    color:#e2e8f0;
-
-    font-size:1.8rem;
-
-    line-height:1;
-
-    cursor:pointer;
-
-}
-
-#viewerClose:hover{
-
-    background:rgba(30,41,59,.94);
-
-}
-
-.card-article-link{
-
-    cursor:pointer;
-
-}
-
-.card-article-link:hover{
-
-    text-decoration:underline;
-
-}
-
-.viewer-frame-fallback{
-
-    position:relative;
-
-    z-index:2;
-
-    width:min(760px, 92vw);
-
-    padding:24px;
-
-    border-radius:16px;
-
-    background:linear-gradient(180deg, #0f172a, #111827);
-
-    color:#e2e8f0;
-
-    box-shadow:0 24px 80px rgba(0,0,0,.55);
-
-}
-
-.viewer-frame-fallback h3{
-
-    margin:0 0 12px;
-
-    font-size:1.15rem;
-
-}
-
-.viewer-frame-fallback p{
-
-    margin:0 0 16px;
-
-    color:#cbd5e1;
-
-}
-
-#viewerOpenSameTab{
-
-    border:0;
-
-    border-radius:10px;
-
-    padding:10px 14px;
-
-    background:#1d4ed8;
-
-    color:#ffffff;
-
-    font-weight:700;
-
-    cursor:pointer;
-
-}
-
-#viewerOpenSameTab:hover{
-
-    background:#1e40af;
 
 }
 
