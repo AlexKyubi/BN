@@ -73,6 +73,23 @@
                     <line x1="3" y1="18" x2="3.01" y2="18"></line>
                 </svg>
             </button>
+            <button id="monthToggle" class="month-toggle-side" type="button" aria-label="Открыть месяцы">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                </svg>
+                <span id="monthBadge" class="month-badge" aria-hidden="true"></span>
+            </button>
+            <button id="resetFiltersBtn" class="reset-filters-side" type="button" aria-label="Сбросить фильтры">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="1 4 1 10 7 10"></polyline>
+                    <polyline points="23 20 23 14 17 14"></polyline>
+                    <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10"></path>
+                    <path d="M3.51 15A9 9 0 0 0 18.36 18.36L23 14"></path>
+                </svg>
+            </button>
         </aside>
 
         <section id="mainContent" class="main-content">
@@ -85,10 +102,12 @@
         <input
             id="search"
             type="search"
-            placeholder="Поиск по артикулу или модели..."
+            inputmode="numeric"
+            pattern="[0-9]*"
+            placeholder="Поиск по артикулу..."
             autocomplete="off"
             spellcheck="false"
-            aria-label="Поиск по артикулу или модели">
+            aria-label="Поиск по артикулу">
         <button id="scanQrBtn" type="button" class="scan-qr-btn" aria-label="Сканировать QR код">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M3 3h6v6H3zM15 3h6v6h-6zM3 15h6v6H3zM17 17v-1h1v1h1v-2h-2v2zM19 19v-1h1v1zM17 19h1v1h-1z"/>
@@ -126,6 +145,17 @@
             <div id="categoryList" class="category-list"></div>
         </div>
         <div class="drawer-backdrop" id="drawerBackdrop"></div>
+    </div>
+
+    <div id="monthDrawer" class="category-drawer month-drawer hidden" aria-hidden="true">
+        <div class="drawer-panel">
+            <div class="drawer-header">
+                <span>Месяцы</span>
+                <button id="closeMonthDrawer" type="button" aria-label="Закрыть месяцы">×</button>
+            </div>
+            <div id="monthList" class="category-list"></div>
+        </div>
+        <div class="drawer-backdrop" id="monthDrawerBackdrop"></div>
     </div>
 
     <!-- QR Scanner Modal -->

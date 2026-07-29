@@ -18,6 +18,7 @@ const SHEET_URL_STORAGE_KEY = "bn_sheet_url_v1";
 const AUTH_CONFIG = {
     defaultPassword: String(runtimeConfig.defaultPassword || "HaierGroup").trim(),
 };
+const DEFAULT_MONTH_COLUMN_INDEX = 4; // Column E
 
 const dom = {
     grid: document.getElementById("grid"),
@@ -25,6 +26,13 @@ const dom = {
     stars: document.getElementById("stars"),
     resultCount: document.getElementById("resultCount"),
     activeFilters: document.getElementById("activeFilters"),
+    monthToggle: document.getElementById("monthToggle"),
+    monthBadge: document.getElementById("monthBadge"),
+    resetFiltersBtn: document.getElementById("resetFiltersBtn"),
+    monthDrawer: document.getElementById("monthDrawer"),
+    closeMonthDrawer: document.getElementById("closeMonthDrawer"),
+    monthList: document.getElementById("monthList"),
+    monthDrawerBackdrop: document.getElementById("monthDrawerBackdrop"),
     viewer: document.getElementById("viewer"),
     viewerImage: document.getElementById("viewerImage"),
     viewerFrame: document.getElementById("viewerFrame"),
@@ -58,6 +66,11 @@ let loadError = null;
 let loadWarning = null;
 let appStarted = false;
 let pendingViewerUrl = "";
+let monthColumns = [];
+let activeMonthColumn = -1;
+let sourceRows = [];
+let sourceBaseIndices = null;
+let sourceWarnings = [];
 
 function isAuthorizedOnDevice() {
     try {
@@ -330,7 +343,7 @@ function hydrateQuickReturnState() {
 
     activeCategory = uiState.activeCategory || CATEGORY_ALL;
     activeStars = Number(uiState.activeStars || 0);
-    searchQuery = String(uiState.searchQuery || "").trim();
+    searchQuery = normalizeArticleSearchInput(uiState.searchQuery || "");
     dom.search.value = searchQuery;
 
     updateCategoryButtons();
@@ -378,6 +391,10 @@ function escapeRegExp(string) {
     return String(string).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function normalizeArticleSearchInput(value) {
+    return String(value || "").replace(/\D+/g, "");
+}
+
 function findColumnIndex(headers, possibleNames) {
     const normalizedHeaders = headers.map(normalizeHeaderName);
 
@@ -402,6 +419,136 @@ function findColumnIndex(headers, possibleNames) {
     }
 
     return -1;
+}
+
+function detectMonthColumns(headers) {
+    const months = [];
+
+    for (let col = DEFAULT_MONTH_COLUMN_INDEX; col < headers.length; col += 1) {
+        const label = headers[col] == null ? "" : String(headers[col]);
+        if (!label.length) {
+            continue;
+        }
+
+        months.push({
+            index: col,
+            label,
+        });
+    }
+
+    return months;
+}
+
+function formatMonthBadgeText(label) {
+    const raw = String(label || "").trim();
+    if (!raw) {
+        return "";
+    }
+
+    const normalized = raw
+        .replace(/^bonus\s+/i, "")
+        .replace(/^update\s+/i, "")
+        .replace(/\s+/g, " ")
+        .trim();
+
+    if (!normalized) {
+        return "";
+    }
+
+    const token = normalized.split(" ")[0] || normalized;
+    return token.slice(0, 3);
+}
+
+function getActiveMonthLabel() {
+    const activeMonth = monthColumns.find((month) => month.index === activeMonthColumn);
+    return activeMonth ? activeMonth.label : "";
+}
+
+function syncMonthSelector() {
+    if (!dom.monthList) {
+        return;
+    }
+
+    dom.monthList.innerHTML = "";
+
+    if (!monthColumns.length) {
+        const empty = document.createElement("div");
+        empty.className = "empty-text";
+        empty.textContent = "Месяцы не найдены";
+        dom.monthList.append(empty);
+        if (dom.monthToggle) {
+            dom.monthToggle.disabled = true;
+        }
+        return;
+    }
+
+    if (!monthColumns.some((month) => month.index === activeMonthColumn)) {
+        const hasDefaultMonth = monthColumns.some((month) => month.index === DEFAULT_MONTH_COLUMN_INDEX);
+        activeMonthColumn = hasDefaultMonth
+            ? DEFAULT_MONTH_COLUMN_INDEX
+            : monthColumns[0].index;
+    }
+
+    monthColumns.forEach((month) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "category-item month-item";
+        button.dataset.monthIndex = String(month.index);
+        button.textContent = month.label;
+        button.classList.toggle("active", month.index === activeMonthColumn);
+        dom.monthList.append(button);
+    });
+
+    if (dom.monthToggle) {
+        dom.monthToggle.disabled = false;
+        const activeMonthLabel = getActiveMonthLabel();
+        dom.monthToggle.title = activeMonthLabel
+            ? `Выбран месяц: ${activeMonthLabel}`
+            : "Выбрать месяц";
+    }
+
+    if (dom.monthBadge) {
+        const badgeText = formatMonthBadgeText(getActiveMonthLabel());
+        dom.monthBadge.textContent = badgeText;
+        dom.monthBadge.classList.toggle("hidden", !badgeText);
+    }
+}
+
+function rebuildItemsFromSourceRows() {
+    if (!sourceRows.length || !sourceBaseIndices) {
+        return;
+    }
+
+    const warnings = [...sourceWarnings];
+    const ratingIndex = activeMonthColumn;
+
+    if (ratingIndex === -1) {
+        warnings.push("Колонки месяцев (с E) не найдены. Все товары будут без звёзд.");
+    }
+
+    items = sourceRows.slice(1)
+        .map((row) => buildItem(row, { ...sourceBaseIndices, rating: ratingIndex }))
+        .filter(Boolean);
+
+    if (!items.length) {
+        const message = warnings.length
+            ? `CSV загружен, но не найдено данных товаров. ${warnings.join(" ")}`
+            : "CSV загружен, но товары не найдены. Проверьте данные в файле.";
+        loadError = message;
+        dom.grid.textContent = message;
+        dom.resultCount.textContent = "Ошибка загрузки товаров";
+        dom.activeFilters.textContent = message;
+        return;
+    }
+
+    loadError = null;
+    loadWarning = warnings.length ? warnings.join(" ") : null;
+
+    const categoryNames = [...new Set(items.map((item) => item.category))]
+        .sort((a, b) => a.localeCompare(b, "ru"));
+    createCategoryList(categoryNames);
+    updateStarsButtons();
+    renderCards();
 }
 
 function parseCsv(text) {
@@ -627,6 +774,9 @@ function buildItem(row, indices) {
 
     // ensure percent numeric: try fallback to column E (index 4) if parse failed
     let finalPercent = percent;
+    if (finalPercent == null && indices.rating === DEFAULT_MONTH_COLUMN_INDEX) {
+        finalPercent = 0;
+    }
     if (finalPercent == null && row.length > 4) {
         const tryE = parsePercent(row[4]);
         if (tryE != null) finalPercent = tryE;
@@ -874,6 +1024,7 @@ function updateCategoryButtons() {
 }
 
 function openCategoryDrawer() {
+    closeMonthDrawer();
     dom.categoryDrawer.classList.remove("hidden");
     dom.categoryDrawer.setAttribute("aria-hidden", "false");
     document.body.classList.add("drawer-open");
@@ -882,14 +1033,84 @@ function openCategoryDrawer() {
 function closeCategoryDrawer() {
     dom.categoryDrawer.classList.add("hidden");
     dom.categoryDrawer.setAttribute("aria-hidden", "true");
-    document.body.classList.remove("drawer-open");
+    if (dom.monthDrawer?.classList.contains("hidden")) {
+        document.body.classList.remove("drawer-open");
+    }
+}
+
+function openMonthDrawer() {
+    closeCategoryDrawer();
+    dom.monthDrawer.classList.remove("hidden");
+    dom.monthDrawer.setAttribute("aria-hidden", "false");
+    document.body.classList.add("drawer-open");
+}
+
+function closeMonthDrawer() {
+    dom.monthDrawer.classList.add("hidden");
+    dom.monthDrawer.setAttribute("aria-hidden", "true");
+    if (dom.categoryDrawer?.classList.contains("hidden")) {
+        document.body.classList.remove("drawer-open");
+    }
+}
+
+function resetAllFilters() {
+    activeCategory = CATEGORY_ALL;
+    activeStars = 0;
+    searchQuery = "";
+
+    if (dom.search) {
+        dom.search.value = "";
+    }
+
+    activeMonthColumn = DEFAULT_MONTH_COLUMN_INDEX;
+    rebuildItemsFromSourceRows();
+    syncMonthSelector();
+    updateCategoryButtons();
+    updateStarsButtons();
+    closeCategoryDrawer();
+    closeMonthDrawer();
 }
 
 function bindEvents() {
     dom.search.addEventListener("input", (event) => {
-        searchQuery = event.target.value.trim();
+        const normalized = normalizeArticleSearchInput(event.target.value);
+        if (event.target.value !== normalized) {
+            event.target.value = normalized;
+        }
+        searchQuery = normalized;
         renderCards();
     });
+
+    if (dom.monthToggle) {
+        dom.monthToggle.addEventListener("click", openMonthDrawer);
+    }
+    if (dom.resetFiltersBtn) {
+        dom.resetFiltersBtn.addEventListener("click", resetAllFilters);
+    }
+    if (dom.closeMonthDrawer) {
+        dom.closeMonthDrawer.addEventListener("click", closeMonthDrawer);
+    }
+    if (dom.monthDrawerBackdrop) {
+        dom.monthDrawerBackdrop.addEventListener("click", closeMonthDrawer);
+    }
+
+    if (dom.monthList) {
+        dom.monthList.addEventListener("click", (event) => {
+            const button = event.target.closest(".month-item");
+            if (!button) {
+                return;
+            }
+
+            activeMonthColumn = Number(button.dataset.monthIndex || -1);
+            if (dom.search && dom.search.value) {
+                dom.search.value = "";
+            }
+            searchQuery = "";
+            rebuildItemsFromSourceRows();
+            syncMonthSelector();
+            closeMonthDrawer();
+        });
+    }
 
     dom.categoryToggle.addEventListener("click", openCategoryDrawer);
     dom.closeCategoryDrawer.addEventListener("click", closeCategoryDrawer);
@@ -933,11 +1154,17 @@ function bindEvents() {
         if (!dom.categoryDrawer.classList.contains("hidden")) {
             closeCategoryDrawer();
         }
+        if (!dom.monthDrawer.classList.contains("hidden")) {
+            closeMonthDrawer();
+        }
     });
 
     dom.search.addEventListener("focus", () => {
         if (!dom.categoryDrawer.classList.contains("hidden")) {
             closeCategoryDrawer();
+        }
+        if (!dom.monthDrawer.classList.contains("hidden")) {
+            closeMonthDrawer();
         }
     });
 
@@ -960,6 +1187,7 @@ function bindEvents() {
     document.addEventListener("keydown", (event) => {
         if (event.key === "Escape") {
             closeCategoryDrawer();
+            closeMonthDrawer();
             hideViewer();
             stopQrScanner();
         }
@@ -1299,9 +1527,10 @@ function extractArticleFromUrl(url) {
 
 function insertArticleToSearch(articleId) {
     const searchInput = document.getElementById("search");
-    searchInput.value = articleId;
+    const normalizedArticleId = normalizeArticleSearchInput(articleId);
+    searchInput.value = normalizedArticleId;
     // Триггер фильтрации
-    searchQuery = articleId.toLowerCase();
+    searchQuery = normalizedArticleId;
     renderCards();
 }
 
@@ -1431,56 +1660,14 @@ async function loadProducts() {
     }
 
     const headers = rows[0] || [];
-    const indices = {
+    const baseIndices = {
         title: findColumnIndex(headers, ["sulpak article+name", "sulpak article + name", "sulpak article name", "sulpak article", "name", "product name"]),
         article: findColumnIndex(headers, ["sulpak article", "article", "sulpak article+name", "sku", "artikul"]),
         category: findColumnIndex(headers, ["category", "категория", "brand"]),
-        rating: findColumnIndex(headers, ["rating", "stars", "рейтинг", "оценка"]),
     };
 
-    // fallback to column E (index 4) when rating column wasn't detected
-    if (indices.rating === -1 && headers.length >= 5) {
-        indices.rating = 4;
-    }
-
-    // If rating still not reliable, try auto-detecting a numeric percent column
-    function detectPercentColumn(rows) {
-        const counts = [];
-        const total = rows.length - 1;
-        for (let col = 0; col < headers.length; col++) {
-            let good = 0;
-            for (let r = 1; r < rows.length; r++) {
-                const v = String(rows[r][col] || "").trim();
-                if (!v) continue;
-                const n = Number(v.replace('%', '').replace(',', '.'));
-                if (!Number.isNaN(n) && n >= 0 && n <= 100) {
-                    good++;
-                }
-            }
-            counts[col] = good;
-        }
-
-        // choose column with most numeric percent-like values and at least 30% filled
-        let best = -1;
-        let bestCount = 0;
-        for (let col = 0; col < counts.length; col++) {
-            if (counts[col] > bestCount && counts[col] >= Math.ceil(total * 0.3)) {
-                bestCount = counts[col];
-                best = col;
-            }
-        }
-        return best;
-    }
-
-    if (indices.rating === -1) {
-        const detected = detectPercentColumn(rows);
-        if (detected !== -1) {
-            indices.rating = detected;
-        }
-    }
-
     const warnings = [];
-    if (indices.article === -1) {
+    if (baseIndices.article === -1) {
         const message = "Колонка 'Sulpak Article' не найдена в CSV. Нельзя определить товары без артикула.";
         loadError = message;
         dom.grid.textContent = message;
@@ -1490,42 +1677,25 @@ async function loadProducts() {
         return;
     }
 
-    if (indices.title === -1) {
+    if (baseIndices.title === -1) {
         warnings.push("Колонка 'Sulpak Article+name' не найдена. Названия будут заменены на артикулы.");
     }
 
-    if (indices.category === -1) {
+    if (baseIndices.category === -1) {
         warnings.push("Колонка категории не найдена. Все товары будут сгруппированы как 'Без категории'.");
     }
 
-    if (indices.rating === -1) {
-        warnings.push("Колонка рейтинга не найдена. Все товары будут без звёзд.");
-    }
+    sourceRows = rows;
+    sourceBaseIndices = baseIndices;
+    sourceWarnings = warnings;
 
-    items = rows.slice(1)
-        .map((row, index) => buildItem(row, indices, index + 2))
-        .filter(Boolean);
+    monthColumns = detectMonthColumns(headers);
+    activeMonthColumn = monthColumns.some((month) => month.index === DEFAULT_MONTH_COLUMN_INDEX)
+        ? DEFAULT_MONTH_COLUMN_INDEX
+        : (monthColumns[0]?.index ?? -1);
+    syncMonthSelector();
 
-    if (!items.length) {
-        const message = warnings.length
-            ? `CSV загружен, но не найдено данных товаров. ${warnings.join(" ")}`
-            : "CSV загружен, но товары не найдены. Проверьте данные в файле.";
-        loadError = message;
-        dom.grid.textContent = message;
-        dom.resultCount.textContent = "Ошибка загрузки товаров";
-        dom.activeFilters.textContent = message;
-        items = [];
-        return;
-    }
-
-    if (warnings.length) {
-        loadWarning = warnings.join(" ");
-        dom.activeFilters.textContent = loadWarning;
-    }
-
-const categoryNames = [...new Set(items.map((item) => item.category))].sort((a, b) => a.localeCompare(b, "ru"));
-        createCategoryList(categoryNames);
-    updateStarsButtons();
+    rebuildItemsFromSourceRows();
 }
 
 initAuthorization();

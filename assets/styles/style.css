@@ -86,6 +86,8 @@ body.auth-locked #viewer{
 
     --shadow:0 16px 40px rgba(0,0,0,.35);
     --radius:18px;
+    --drawer-duration:.28s;
+    --drawer-easing:cubic-bezier(.22,.61,.36,1);
 
 }
 
@@ -225,6 +227,84 @@ body.auth-locked #viewer{
     align-items:center;
     justify-content:center;
     margin-top:8px;
+}
+
+.month-toggle-side{
+    width:52px;
+    height:44px;
+    border:1px solid var(--border);
+    background:transparent;
+    color:var(--text);
+    border-radius:12px;
+    cursor:pointer;
+    transition:.18s ease;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.02);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    position:relative;
+    overflow:visible;
+}
+
+.month-badge{
+    position:absolute;
+    right:-8px;
+    top:-8px;
+    min-width:24px;
+    height:18px;
+    padding:0 6px;
+    border-radius:999px;
+    background:linear-gradient(135deg, #f5c451, #ffb800);
+    color:#1d1600;
+    border:1px solid rgba(0,0,0,.2);
+    font-size:.62rem;
+    font-weight:700;
+    line-height:16px;
+    text-align:center;
+    pointer-events:none;
+    box-shadow:0 4px 12px rgba(0,0,0,.28);
+}
+
+.month-badge.hidden{
+    display:none;
+}
+
+.month-toggle-side:hover{
+    background:rgba(255,255,255,.08);
+    transform:translateY(-1px);
+}
+
+.month-toggle-side:active{
+    transform:scale(.98);
+}
+
+.month-toggle-side:disabled{
+    opacity:.55;
+    cursor:not-allowed;
+}
+
+.reset-filters-side{
+    width:52px;
+    height:44px;
+    border:1px solid rgba(255,255,255,.22);
+    background:rgba(255,255,255,.04);
+    color:var(--text);
+    border-radius:12px;
+    cursor:pointer;
+    transition:.18s ease;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.02);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+
+.reset-filters-side:hover{
+    background:rgba(255,255,255,.1);
+    transform:translateY(-1px);
+}
+
+.reset-filters-side:active{
+    transform:scale(.98);
 }
 
 .categories-toggle-side:hover{
@@ -369,7 +449,7 @@ body.auth-locked #viewer{
     inset:0;
     z-index:900;
     display:grid;
-    grid-template-columns:1fr minmax(280px, 340px);
+    grid-template-columns:minmax(250px, 340px) 1fr;
     pointer-events:auto;
 }
 
@@ -381,7 +461,7 @@ body.auth-locked #viewer{
 .drawer-backdrop{
     background:rgba(0,0,0,.45);
     opacity:1;
-    transition:opacity .25s ease;
+    transition:opacity var(--drawer-duration) var(--drawer-easing);
     pointer-events:auto;
 }
 
@@ -393,9 +473,15 @@ body.auth-locked #viewer{
     display:flex;
     flex-direction:column;
     pointer-events:auto;
-    order:-1;
+    order:0;
+    grid-column:1;
     transform:translateX(-100%);
-    transition:transform .3s ease;
+    transition:transform var(--drawer-duration) var(--drawer-easing);
+    will-change:transform;
+}
+
+.drawer-backdrop{
+    grid-column:2;
 }
 
 .category-drawer:not(.hidden) .drawer-panel{
@@ -442,6 +528,7 @@ body.auth-locked #viewer{
     border:1px solid var(--border);
     border-radius:16px;
     padding:12px 14px;
+    font-size:.95rem;
     background:rgba(255,255,255,.05);
     color:var(--text);
     cursor:pointer;
@@ -454,6 +541,12 @@ body.auth-locked #viewer{
 }
 
 .category-item.active{
+    background:linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color:#fff;
+    border-color:transparent;
+}
+
+.month-item.active{
     background:linear-gradient(135deg, var(--primary), var(--primary-dark));
     color:#fff;
     border-color:transparent;
@@ -495,22 +588,22 @@ body.auth-locked #viewer{
     }
 
     .category-drawer{
-        grid-template-columns:1fr minmax(240px, 90vw);
+        grid-template-columns:minmax(220px, 72vw) 1fr;
     }
 
     .drawer-panel{
-        max-width:90vw;
+        max-width:72vw;
     }
 }
 
 /* Категории drawer на мобильных - компактнее */
 @media(max-width:650px){
     .category-drawer{
-        grid-template-columns:1fr minmax(220px, 60vw);
+        grid-template-columns:minmax(200px, 68vw) 1fr;
     }
 
     .drawer-panel{
-        max-width:60vw;
+        max-width:68vw;
         padding:16px;
     }
 
@@ -580,6 +673,7 @@ body.auth-locked #viewer{
 .summary span{
     display:inline-block;
 }
+
 
 #logo{
 
