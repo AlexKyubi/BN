@@ -9,13 +9,6 @@
   "background_color": "#ffffff",
   "theme_color": "#2d7dff",
   "categories": ["shopping", "productivity"],
-  "screenshots": [
-    {
-      "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
-      "sizes": "540x720",
-      "type": "image/png"
-    }
-  ],
   "icons": [
     {
       "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%232d7dff' width='192' height='192'/><text x='96' y='130' font-size='100' font-weight='bold' fill='white' text-anchor='middle'>BN</text></svg>",

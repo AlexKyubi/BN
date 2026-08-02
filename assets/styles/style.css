@@ -1791,6 +1791,12 @@ select.auth-input optgroup{
     height:16px;
 }
 
+.stock-info-body{
+    display:flex;
+    flex-direction:column;
+    min-height:100%;
+}
+
 .stock-info-body p{
     margin:0 0 8px;
 }
@@ -1800,8 +1806,10 @@ select.auth-input optgroup{
     margin:10px 0 0;
     padding:0;
     display:grid;
+    align-content:start;
     gap:8px;
-    max-height:240px;
+    flex:1;
+    min-height:0;
     overflow:auto;
 }
 

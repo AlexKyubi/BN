@@ -1630,11 +1630,11 @@ function createCard(item) {
 
     modelEl.textContent = item.category;
 
-    titleEl.addEventListener("click", (event) => {
+    articleEl.addEventListener("click", (event) => {
         event.stopPropagation();
     });
 
-    titleEl.addEventListener("dblclick", (event) => {
+    articleEl.addEventListener("dblclick", (event) => {
         event.preventDefault();
         event.stopPropagation();
 
@@ -2188,15 +2188,14 @@ function isMobileDevice() {
         || window.innerWidth <= 650;
 }
 
-// Fallback: показываем кнопку install на мобильных устройствах в любом случае
+// Fallback: показываем кнопку install всегда, даже если beforeinstallprompt
+// не сработал (Yandex Browser, Firefox, Safari и т.п. не поддерживают это событие)
 document.addEventListener('DOMContentLoaded', () => {
-    if (isMobileDevice() && installBtn && !deferredPrompt) {
-        console.log('📱 Мобильное устройство - показываю кнопку install');
-        // Показываем кнопку даже если PWA не поддерживается, инструкции помогут
+    if (installBtn && !deferredPrompt) {
         setTimeout(() => {
             if (!deferredPrompt && installBtn.classList.contains('hidden')) {
                 installBtn.classList.remove('hidden');
-                console.log('📥 Кнопка install показана (fallback mode)');
+                console.log('📥 Кнопка install показана (fallback mode, ручные инструкции)');
             }
         }, 3000);
     }
