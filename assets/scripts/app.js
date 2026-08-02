@@ -893,6 +893,7 @@ function showStockInfoModal(item) {
     `;
 
     dom.stockInfoModal.classList.remove("hidden");
+    dom.stockInfoModal.setAttribute("aria-hidden", "false");
 }
 
 function closeStockInfoModal() {
@@ -901,6 +902,7 @@ function closeStockInfoModal() {
     }
 
     dom.stockInfoModal.classList.add("hidden");
+    dom.stockInfoModal.setAttribute("aria-hidden", "true");
 }
 
 function openProfileModal() {

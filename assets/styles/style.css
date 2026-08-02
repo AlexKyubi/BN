@@ -545,6 +545,76 @@ body.auth-locked #viewer{
     box-shadow:0 10px 24px rgba(45,125,255,.22);
 }
 
+/* ---------- Панель "Остатки по товару" (выезжает справа) ---------- */
+
+.stock-info-drawer{
+    position:fixed;
+    inset:0;
+    z-index:1000;
+    display:grid;
+    grid-template-columns:1fr minmax(280px, 380px);
+    pointer-events:auto;
+}
+
+.stock-info-drawer.hidden{
+    display:none;
+    pointer-events:none;
+}
+
+.stock-info-drawer .drawer-backdrop{
+    grid-column:1;
+}
+
+.stock-info-panel{
+    background:var(--surface);
+    backdrop-filter:blur(14px);
+    border-left:1px solid rgba(255,255,255,.08);
+    padding:20px;
+    display:flex;
+    flex-direction:column;
+    pointer-events:auto;
+    grid-column:2;
+    transform:translateX(100%);
+    transition:transform var(--drawer-duration) var(--drawer-easing);
+    min-height:0;
+}
+
+.stock-info-drawer:not(.hidden) .stock-info-panel{
+    transform:translateX(0);
+}
+
+.stock-info-scroll{
+    overflow:auto;
+    min-height:0;
+    flex:1;
+}
+
+.stock-info-footer{
+    margin-top:16px;
+    padding-top:14px;
+    border-top:1px solid var(--border);
+}
+
+.stock-info-footer .btn-secondary{
+    width:100%;
+}
+
+@media(max-width:750px){
+    .stock-info-drawer{
+        grid-template-columns:1fr minmax(260px, 82vw);
+    }
+}
+
+@media(max-width:650px){
+    .stock-info-drawer{
+        grid-template-columns:1fr minmax(240px, 84vw);
+    }
+
+    .stock-info-panel{
+        padding:16px;
+    }
+}
+
 @media(max-width:1100px){
     #content{
         grid-template-columns:96px minmax(0, 1fr);
@@ -1732,10 +1802,6 @@ select.auth-input optgroup{
     height:16px;
 }
 
-.stock-info-content{
-    max-width:560px;
-}
-
 .stock-info-body p{
     margin:0 0 8px;
 }
@@ -1921,6 +1987,27 @@ select.auth-input optgroup{
         font-size:.76rem;
     }
 
+    .card-meta{
+        padding:10px 46px 8px 12px;
+        gap:4px;
+    }
+
+    .card-price{
+        font-size:.78rem;
+        padding:3px 8px;
+        max-width:100%;
+        white-space:normal;
+        word-break:break-word;
+    }
+
+    .card-stock-info{
+        right:8px;
+        top:8px;
+        width:32px;
+        height:32px;
+        font-size:.85rem;
+    }
+
 }
 
 @media(max-width:430px){
@@ -1946,6 +2033,28 @@ select.auth-input optgroup{
         padding:6px 8px 10px;
         font-size:.72rem;
 
+    }
+
+    .card-meta{
+        padding:8px 42px 6px 10px;
+    }
+
+    .card-price{
+        font-size:.72rem;
+        padding:2px 7px;
+    }
+
+    .card-article{
+        font-size:.76rem;
+    }
+
+    .card-stock-info{
+        right:6px;
+        top:6px;
+        width:28px;
+        height:28px;
+        font-size:.78rem;
+        border-radius:9px;
     }
 
 }

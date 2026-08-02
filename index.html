@@ -253,17 +253,17 @@
     </div>
 </div>
 
-<div id="stockInfoModal" class="install-modal hidden" role="dialog" aria-modal="true" aria-labelledby="stockInfoTitle">
-    <div class="modal-backdrop" id="stockInfoBackdrop"></div>
-    <div class="modal-content stock-info-content">
-        <div class="modal-header">
-            <h2 id="stockInfoTitle">Остатки по товару</h2>
-            <button id="closeStockInfoModal" type="button" class="close-btn" aria-label="Закрыть">×</button>
+<div id="stockInfoModal" class="stock-info-drawer hidden" role="dialog" aria-modal="true" aria-labelledby="stockInfoTitle" aria-hidden="true">
+    <div class="drawer-backdrop" id="stockInfoBackdrop"></div>
+    <div class="drawer-panel stock-info-panel">
+        <div class="drawer-header">
+            <span id="stockInfoTitle">Остатки по товару</span>
+            <button id="closeStockInfoModal" type="button" aria-label="Закрыть">×</button>
         </div>
-        <div class="modal-body">
+        <div class="stock-info-scroll">
             <div id="stockInfoBody" class="stock-info-body"></div>
         </div>
-        <div class="modal-footer">
+        <div class="stock-info-footer">
             <button id="closeStockInfoFooterBtn" type="button" class="btn-secondary">Закрыть</button>
         </div>
     </div>
