@@ -9,6 +9,8 @@ WorkingDirectory=/opt/bn-proxy
 Environment=HOST=127.0.0.1
 Environment=PORT=8080
 Environment=ALLOWED_ORIGINS=https://bn.alexkyubi.com
+Environment=RATE_LIMIT_MAX=3000
+Environment=RATE_LIMIT_WINDOW=60
 ExecStart=/usr/bin/python3 /opt/bn-proxy/proxy_server.py
 Restart=always
 RestartSec=3
