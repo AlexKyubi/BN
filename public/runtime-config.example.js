@@ -7,8 +7,8 @@ window.BN_CONFIG = {
   // Keep the real value only in public/runtime-config.js (ignored by git).
   defaultPassword: "REPLACE_ME",
 
-  // Sulpak stock proxy base URL.
-  sulpakProxyBase: "http://127.0.0.1:8080",
+  // Sulpak stock proxy base URL (public HTTPS endpoint on your VM).
+  sulpakProxyBase: "https://proxy.bn.alexkyubi.com",
 
   // Parallel requests for stock refresh (1..30).
   stockRefreshConcurrency: 12,
