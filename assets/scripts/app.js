@@ -196,16 +196,11 @@ function renderCurrentUserName(fullName) {
         return;
     }
 
-    const isCompactScreen = window.matchMedia("(max-width: 650px)").matches;
-    if (isCompactScreen) {
-        dom.currentUser.textContent = safeName;
+    const city = getCurrentCityDisplay();
+    if (city) {
+        dom.currentUser.innerHTML = `${escapeHtml(safeName)}<br><span class="current-user-city">${escapeHtml(city)}</span>`;
     } else {
-        const city = getCurrentCityDisplay();
-        if (city) {
-            dom.currentUser.innerHTML = `${escapeHtml(safeName)}<br><span class="current-user-city">${escapeHtml(city)}</span>`;
-        } else {
-            dom.currentUser.textContent = `Пользователь: ${safeName}`;
-        }
+        dom.currentUser.textContent = `Пользователь: ${safeName}`;
     }
     dom.currentUser.title = "Открыть личный кабинет";
     dom.currentUser.setAttribute("role", "button");
