@@ -568,15 +568,10 @@ body.auth-locked #viewer{
 
 .stock-info-panel{
     position:relative;
-    align-self:flex-start;
-    max-height:100%;
     width:min(380px, 100%);
     background:var(--surface);
     backdrop-filter:blur(14px);
     border-left:1px solid rgba(255,255,255,.08);
-    border-bottom:1px solid rgba(255,255,255,.08);
-    border-radius:0 0 0 18px;
-    box-shadow:0 20px 44px rgba(0,0,0,.35);
     padding:20px;
     display:flex;
     flex-direction:column;
