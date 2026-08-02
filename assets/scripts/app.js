@@ -15,9 +15,23 @@ const LOCAL_CSV_PATH = "public/products.csv";
 const AUTH_STORAGE_KEY = "bn_auth_ok_v1";
 const AUTH_USER_NAME_KEY = "bn_user_name_v1";
 const SHEET_URL_STORAGE_KEY = "bn_sheet_url_v1";
+const PROFILE_REGION_STORAGE_KEY = "bn_profile_region_v1";
+const PROFILE_CITY_STORAGE_KEY = "bn_profile_city_v1";
+const STOCK_CACHE_KEY = "bn_stock_cache_v1";
+const HIDE_ZERO_PRICE_STORAGE_KEY = "bn_hide_zero_price_v1";
+const HIDE_NO_STOCK_STORAGE_KEY = "bn_hide_no_stock_v1";
+const DEFAULT_PROXY_BASE = "http://127.0.0.1:8080";
+const STOCK_PATH = "/stock";
+const LANGUAGE_ID = 3;
 const AUTH_CONFIG = {
     defaultPassword: String(runtimeConfig.defaultPassword || "HaierGroup").trim(),
 };
+const STOCK_CONFIG = {
+    proxyBase: String(runtimeConfig.sulpakProxyBase || DEFAULT_PROXY_BASE).trim(),
+};
+const STOCK_REFRESH_CONCURRENCY = Math.max(1, Math.min(30, Number(runtimeConfig.stockRefreshConcurrency || 12)));
+const STOCK_FETCH_TIMEOUT_MS = Math.max(3000, Number(runtimeConfig.stockFetchTimeoutMs || 12000));
+const ARTICLE_COLUMN_INDEX = 2; // Column C
 const DEFAULT_MONTH_COLUMN_INDEX = 4; // Column E
 
 const dom = {
@@ -52,6 +66,22 @@ const dom = {
     authSheetUrl: document.getElementById("authSheetUrl"),
     authPassword: document.getElementById("authPassword"),
     authError: document.getElementById("authError"),
+    profileModal: document.getElementById("profileModal"),
+    profileBackdrop: document.getElementById("profileBackdrop"),
+    closeProfileModal: document.getElementById("closeProfileModal"),
+    closeProfileFooterBtn: document.getElementById("closeProfileFooterBtn"),
+    profileRegion: document.getElementById("profileRegion"),
+    profileCity: document.getElementById("profileCity"),
+    profileRegionUpdatedAt: document.getElementById("profileRegionUpdatedAt"),
+    hideZeroPrice: document.getElementById("hideZeroPrice"),
+    hideNoStock: document.getElementById("hideNoStock"),
+    profileStatus: document.getElementById("profileStatus"),
+    refreshStockBtn: document.getElementById("refreshStockBtn"),
+    stockInfoModal: document.getElementById("stockInfoModal"),
+    stockInfoBackdrop: document.getElementById("stockInfoBackdrop"),
+    closeStockInfoModal: document.getElementById("closeStockInfoModal"),
+    closeStockInfoFooterBtn: document.getElementById("closeStockInfoFooterBtn"),
+    stockInfoBody: document.getElementById("stockInfoBody"),
 };
 
 let items = [];
@@ -68,6 +98,10 @@ let pendingQuickReturnMonthColumn = null;
 let sourceRows = [];
 let sourceBaseIndices = null;
 let sourceWarnings = [];
+let regionsModel = null;
+let stockCache = { regions: {} };
+let hideZeroPrice = false;
+let hideNoStock = false;
 
 function isAuthorizedOnDevice() {
     try {
@@ -163,7 +197,19 @@ function renderCurrentUserName(fullName) {
     }
 
     const isCompactScreen = window.matchMedia("(max-width: 650px)").matches;
-    dom.currentUser.textContent = isCompactScreen ? safeName : `Пользователь: ${safeName}`;
+    if (isCompactScreen) {
+        dom.currentUser.textContent = safeName;
+    } else {
+        const city = getCurrentCityDisplay();
+        if (city) {
+            dom.currentUser.innerHTML = `${escapeHtml(safeName)}<br><span class="current-user-city">${escapeHtml(city)}</span>`;
+        } else {
+            dom.currentUser.textContent = `Пользователь: ${safeName}`;
+        }
+    }
+    dom.currentUser.title = "Открыть личный кабинет";
+    dom.currentUser.setAttribute("role", "button");
+    dom.currentUser.setAttribute("tabindex", "0");
     dom.currentUser.classList.remove("hidden");
 }
 
@@ -274,6 +320,7 @@ async function startApp() {
 
     appStarted = true;
     bindEvents();
+    await initProfileCabinet();
     hydrateQuickReturnState();
     await loadProducts();
     renderCards();
@@ -376,6 +423,633 @@ function initAuthorization() {
     showAuthModal();
 }
 
+function setProfileStatus(message, tone = "") {
+    if (!dom.profileStatus) {
+        return;
+    }
+
+    dom.profileStatus.textContent = message || "";
+    dom.profileStatus.classList.remove("ok", "error");
+    if (tone) {
+        dom.profileStatus.classList.add(tone);
+    }
+}
+
+function loadProfileSelection() {
+    try {
+        return {
+            region: (localStorage.getItem(PROFILE_REGION_STORAGE_KEY) || "").trim(),
+            cityId: (localStorage.getItem(PROFILE_CITY_STORAGE_KEY) || "").trim(),
+        };
+    } catch (error) {
+        console.warn("Не удалось прочитать настройки кабинета:", error);
+        return { region: "", cityId: "" };
+    }
+}
+
+function saveProfileSelection(region, cityId) {
+    try {
+        localStorage.setItem(PROFILE_REGION_STORAGE_KEY, String(region || "").trim());
+        localStorage.setItem(PROFILE_CITY_STORAGE_KEY, String(cityId || "").trim());
+    } catch (error) {
+        console.warn("Не удалось сохранить настройки кабинета:", error);
+    }
+}
+
+function loadProfileFilters() {
+    try {
+        hideZeroPrice = localStorage.getItem(HIDE_ZERO_PRICE_STORAGE_KEY) === "1";
+        hideNoStock = localStorage.getItem(HIDE_NO_STOCK_STORAGE_KEY) === "1";
+    } catch (error) {
+        console.warn("Не удалось прочитать фильтры личного кабинета:", error);
+        hideZeroPrice = false;
+        hideNoStock = false;
+    }
+}
+
+function saveProfileFilters() {
+    try {
+        localStorage.setItem(HIDE_ZERO_PRICE_STORAGE_KEY, hideZeroPrice ? "1" : "0");
+        localStorage.setItem(HIDE_NO_STOCK_STORAGE_KEY, hideNoStock ? "1" : "0");
+    } catch (error) {
+        console.warn("Не удалось сохранить фильтры личного кабинета:", error);
+    }
+}
+
+function syncProfileFiltersUi() {
+    if (dom.hideZeroPrice) {
+        dom.hideZeroPrice.checked = Boolean(hideZeroPrice);
+    }
+    if (dom.hideNoStock) {
+        dom.hideNoStock.checked = Boolean(hideNoStock);
+    }
+}
+
+function loadStockCache() {
+    try {
+        const raw = localStorage.getItem(STOCK_CACHE_KEY);
+        if (!raw) {
+            return { regions: {} };
+        }
+
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+            return { regions: {} };
+        }
+
+        if (parsed.regions && typeof parsed.regions === "object" && !Array.isArray(parsed.regions)) {
+            return parsed;
+        }
+
+        // Backward compatibility with old cache format: article -> record.
+        return {
+            regions: {
+                legacy: {
+                    regionName: "legacy",
+                    cityId: "",
+                    cityName: "",
+                    updatedAt: 0,
+                    items: parsed,
+                },
+            },
+        };
+    } catch (error) {
+        console.warn("Не удалось загрузить кеш остатков:", error);
+        return { regions: {} };
+    }
+}
+
+function saveStockCache() {
+    try {
+        localStorage.setItem(STOCK_CACHE_KEY, JSON.stringify(stockCache || { regions: {} }));
+    } catch (error) {
+        console.warn("Не удалось сохранить кеш остатков:", error);
+    }
+}
+
+function buildRegionCacheKey(regionName, cityId) {
+    const safeRegion = String(regionName || "").trim();
+    const safeCityId = String(cityId || "").trim();
+    return `${safeRegion}::${safeCityId}`;
+}
+
+function getCurrentRegionEntry() {
+    const regionName = getSelectedRegionValue();
+    const cityId = String(dom.profileCity?.value || "").trim();
+    if (!regionName || !cityId) {
+        return null;
+    }
+
+    const key = buildRegionCacheKey(regionName, cityId);
+    const entry = stockCache?.regions?.[key];
+    if (!entry || typeof entry !== "object") {
+        return null;
+    }
+
+    return entry;
+}
+
+function ensureCurrentRegionEntry() {
+    const regionName = getSelectedRegionValue();
+    const cityId = String(dom.profileCity?.value || "").trim();
+    const cityName = getSelectedCityContext().cityName;
+
+    if (!regionName || !cityId) {
+        return null;
+    }
+
+    if (!stockCache || typeof stockCache !== "object") {
+        stockCache = { regions: {} };
+    }
+
+    if (!stockCache.regions || typeof stockCache.regions !== "object") {
+        stockCache.regions = {};
+    }
+
+    const key = buildRegionCacheKey(regionName, cityId);
+    if (!stockCache.regions[key] || typeof stockCache.regions[key] !== "object") {
+        stockCache.regions[key] = {
+            regionName,
+            cityId,
+            cityName,
+            updatedAt: 0,
+            items: {},
+        };
+    }
+
+    stockCache.regions[key].regionName = regionName;
+    stockCache.regions[key].cityId = cityId;
+    stockCache.regions[key].cityName = cityName;
+    if (!stockCache.regions[key].items || typeof stockCache.regions[key].items !== "object") {
+        stockCache.regions[key].items = {};
+    }
+
+    return stockCache.regions[key];
+}
+
+function getStockRecordByArticle(article) {
+    const key = String(article || "").trim();
+    if (!key) {
+        return null;
+    }
+
+    const currentRegionEntry = getCurrentRegionEntry();
+    const value = currentRegionEntry?.items?.[key];
+    if (!value || typeof value !== "object") {
+        return null;
+    }
+
+    return value;
+}
+
+function updateRegionUpdatedAtLabel() {
+    if (!dom.profileRegionUpdatedAt) {
+        return;
+    }
+
+    const entry = getCurrentRegionEntry();
+    const text = entry?.updatedAt
+        ? formatStockUpdatedAt(entry.updatedAt)
+        : "-";
+    dom.profileRegionUpdatedAt.textContent = `Последнее обновление по региону: ${text}`;
+}
+
+function getCandidateRegionUrls() {
+    const base = window.location.href;
+    return [
+        new URL("data/sulpak.region.codes.json", base),
+        new URL("./data/sulpak.region.codes.json", base),
+        new URL("../data/sulpak.region.codes.json", base),
+        new URL("../../data/sulpak.region.codes.json", base),
+    ];
+}
+
+async function loadRegionRows() {
+    const candidates = getCandidateRegionUrls();
+    const errors = [];
+
+    for (const url of candidates) {
+        try {
+            const response = await fetch(url, { cache: "no-store" });
+            if (!response.ok) {
+                errors.push(`${url.pathname}: HTTP ${response.status}`);
+                continue;
+            }
+
+            const payload = await response.json();
+            const rows = Array.isArray(payload) ? payload : payload?.regions;
+            if (!Array.isArray(rows) || rows.length === 0) {
+                errors.push(`${url.pathname}: пустой список`);
+                continue;
+            }
+
+            const normalized = rows
+                .map((item) => ({
+                    id: Number(item?.id),
+                    city: String(item?.city || "").trim(),
+                    region: String(item?.region || "").trim(),
+                }))
+                .filter((item) => Number.isFinite(item.id) && item.id > 0 && item.city);
+
+            if (!normalized.length) {
+                errors.push(`${url.pathname}: нет валидных строк`);
+                continue;
+            }
+
+            return normalized;
+        } catch (error) {
+            errors.push(`${url.pathname}: ${error.message}`);
+        }
+    }
+
+    throw new Error(`Не удалось загрузить файл регионов. ${errors.join(" | ")}`);
+}
+
+function buildRegionCityModel(rows) {
+    const byRegion = new Map();
+
+    rows.forEach((item) => {
+        const regionName = item.region || "Регион не указан";
+        if (!byRegion.has(regionName)) {
+            byRegion.set(regionName, []);
+        }
+        byRegion.get(regionName).push(item);
+    });
+
+    for (const cities of byRegion.values()) {
+        cities.sort((a, b) => String(a.city || "").localeCompare(String(b.city || ""), "ru"));
+    }
+
+    const regionNames = [...byRegion.keys()].sort((a, b) => a.localeCompare(b, "ru"));
+    return { byRegion, regionNames };
+}
+
+function fillProfileRegionSelect(regionNames) {
+    if (!dom.profileRegion) {
+        return;
+    }
+
+    const options = [`<option value="">Выберите регион</option>`]
+        .concat(regionNames.map((region) => `<option value="${escapeHtml(region)}">${escapeHtml(region)}</option>`))
+        .join("");
+
+    dom.profileRegion.innerHTML = options;
+}
+
+function fillProfileCitySelect(cities, preferredCityId = "") {
+    if (!dom.profileCity) {
+        return;
+    }
+
+    if (!Array.isArray(cities) || !cities.length) {
+        dom.profileCity.innerHTML = `<option value="">Сначала выберите регион</option>`;
+        dom.profileCity.disabled = true;
+        return;
+    }
+
+    dom.profileCity.disabled = false;
+    dom.profileCity.innerHTML = cities
+        .map((item) => `<option value="${item.id}">${escapeHtml(item.city || "Без названия")}</option>`)
+        .join("");
+
+    const preferred = cities.find((item) => String(item.id) === String(preferredCityId));
+    if (preferred) {
+        dom.profileCity.value = String(preferred.id);
+    }
+}
+
+function syncProfileCitySelect(preferredCityId = "") {
+    if (!regionsModel || !dom.profileRegion) {
+        return;
+    }
+
+    const selectedRegion = (dom.profileRegion.value || "").trim();
+    const cities = regionsModel.byRegion.get(selectedRegion) || [];
+    fillProfileCitySelect(cities, preferredCityId);
+}
+
+function getSelectedCityContext() {
+    if (!dom.profileCity) {
+        return { cityId: "", cityName: "" };
+    }
+
+    const cityId = String(dom.profileCity.value || "").trim();
+    const cityName = dom.profileCity.options[dom.profileCity.selectedIndex]?.textContent || "";
+    return { cityId, cityName: String(cityName || "").trim() };
+}
+
+function getSelectedRegionValue() {
+    return String(dom.profileRegion?.value || "").trim();
+}
+
+function getCurrentCityDisplay() {
+    try {
+        if (dom.profileCity && dom.profileCity.selectedIndex > -1) {
+            const txt = dom.profileCity.options[dom.profileCity.selectedIndex]?.textContent || "";
+            if (txt && String(txt).trim()) {
+                return String(txt).trim();
+            }
+        }
+
+        const saved = loadProfileSelection();
+        const savedCityId = String(saved.cityId || "").trim();
+        if (savedCityId && regionsModel && regionsModel.byRegion) {
+            for (const cities of regionsModel.byRegion.values()) {
+                const found = cities.find((c) => String(c.id) === savedCityId);
+                if (found) {
+                    return String(found.city || "");
+                }
+            }
+        }
+    } catch (e) {
+        // ignore
+    }
+
+    return "";
+}
+
+function buildStockUrl({ cityId, article, languageId }) {
+    const configuredBase = String(STOCK_CONFIG.proxyBase || DEFAULT_PROXY_BASE).trim();
+    const normalizedBase = configuredBase.endsWith("/") ? configuredBase.slice(0, -1) : configuredBase;
+    const url = new URL(`${normalizedBase}${STOCK_PATH}`, window.location.origin);
+    url.searchParams.set("cityId", String(cityId));
+    url.searchParams.set("article", String(article));
+    url.searchParams.set("languageId", String(languageId));
+    return url.toString();
+}
+
+async function parseResponseBody(response) {
+    const text = await response.text();
+    if (!text) {
+        return null;
+    }
+
+    try {
+        return JSON.parse(text);
+    } catch {
+        return { raw: text };
+    }
+}
+
+function normalizeStockRecord(payload, fallbackCityName = "") {
+    const stores = Array.isArray(payload?.stores)
+        ? payload.stores.map((store) => ({
+            storageId: String(store?.storageId || "").trim(),
+            address: String(store?.address || "").trim(),
+            availability: String(store?.availability || "").trim(),
+        }))
+        : [];
+
+    const countFromField = Number(payload?.count);
+    const count = Number.isFinite(countFromField) ? countFromField : stores.length;
+
+    const priceValue = Number(payload?.price);
+    const price = Number.isFinite(priceValue) ? priceValue : null;
+
+    return {
+        price,
+        count,
+        stores,
+        cityTitle: String(payload?.cityTitle || fallbackCityName || "").trim(),
+        updatedAt: Date.now(),
+    };
+}
+
+async function fetchStockForArticle(cityId, cityName, article) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), STOCK_FETCH_TIMEOUT_MS);
+
+    const requestUrl = buildStockUrl({ cityId, article, languageId: LANGUAGE_ID });
+    let response;
+    try {
+        response = await fetch(requestUrl, {
+            method: "GET",
+            headers: { Accept: "application/json" },
+            signal: controller.signal,
+        });
+    } catch (error) {
+        if (error && error.name === "AbortError") {
+            throw new Error(`timeout_${STOCK_FETCH_TIMEOUT_MS}ms`);
+        }
+        throw error;
+    } finally {
+        clearTimeout(timeoutId);
+    }
+
+    const payload = await parseResponseBody(response);
+
+    if (!response.ok) {
+        const message = payload?.error || payload?.message || `HTTP ${response.status}`;
+        throw new Error(String(message));
+    }
+
+    return normalizeStockRecord(payload, cityName);
+}
+
+function formatMoneyKzt(value) {
+    if (!Number.isFinite(Number(value))) {
+        return "-";
+    }
+
+    return `${Number(value).toLocaleString("ru-RU")} KZT`;
+}
+
+function formatStockUpdatedAt(timestamp) {
+    if (!Number.isFinite(Number(timestamp))) {
+        return "-";
+    }
+
+    return new Date(Number(timestamp)).toLocaleString("ru-RU");
+}
+
+function createStoreInfoHtml(stores) {
+    if (!Array.isArray(stores) || !stores.length) {
+        return "<p class=\"stock-info-empty\">Точки с остатками не найдены.</p>";
+    }
+
+    const items = stores.map((store) => {
+        const address = escapeHtml(store.address || "Без адреса");
+        const availability = escapeHtml(store.availability || "Нет данных");
+        return `<li><strong>${address}</strong><span>${availability}</span></li>`;
+    }).join("");
+
+    return `<ul class=\"stock-info-list\">${items}</ul>`;
+}
+
+function showStockInfoModal(item) {
+    const stockRecord = getStockRecordByArticle(item?.article);
+    if (!dom.stockInfoModal || !dom.stockInfoBody) {
+        return;
+    }
+
+    const city = stockRecord?.cityTitle || "-";
+    const count = Number.isFinite(Number(stockRecord?.count)) ? Number(stockRecord.count) : 0;
+    const price = formatMoneyKzt(stockRecord?.price);
+    const updatedAt = formatStockUpdatedAt(stockRecord?.updatedAt);
+
+    dom.stockInfoBody.innerHTML = `
+        <p><strong>Товар:</strong> #${escapeHtml(item?.article || "-")}</p>
+        <p><strong>Название:</strong> ${escapeHtml(item?.title || "-")}</p>
+        <p><strong>Город:</strong> ${escapeHtml(city)}</p>
+        <p><strong>Цена:</strong> ${escapeHtml(price)}</p>
+        <p><strong>Остаток:</strong> ${escapeHtml(String(count))}</p>
+        <p><strong>Обновлено:</strong> ${escapeHtml(updatedAt)}</p>
+        ${createStoreInfoHtml(stockRecord?.stores || [])}
+    `;
+
+    dom.stockInfoModal.classList.remove("hidden");
+}
+
+function closeStockInfoModal() {
+    if (!dom.stockInfoModal) {
+        return;
+    }
+
+    dom.stockInfoModal.classList.add("hidden");
+}
+
+function openProfileModal() {
+    if (!dom.profileModal) {
+        return;
+    }
+
+    updateRegionUpdatedAtLabel();
+    syncProfileFiltersUi();
+
+    const cachedRegion = getCurrentRegionEntry();
+    if (cachedRegion?.updatedAt) {
+        setProfileStatus("Остатки загружены.", "ok");
+    } else {
+        setProfileStatus("Требуется загрузка остатков.", "error");
+    }
+
+    dom.profileModal.classList.remove("hidden");
+}
+
+function closeProfileModal() {
+    if (!dom.profileModal) {
+        return;
+    }
+
+    dom.profileModal.classList.add("hidden");
+}
+
+async function initProfileCabinet() {
+    stockCache = loadStockCache();
+    loadProfileFilters();
+    syncProfileFiltersUi();
+
+    try {
+        const rows = await loadRegionRows();
+        regionsModel = buildRegionCityModel(rows);
+        fillProfileRegionSelect(regionsModel.regionNames);
+
+        const savedSelection = loadProfileSelection();
+        const defaultRegion = savedSelection.region
+            || rows.find((item) => item.id === 1)?.region
+            || regionsModel.regionNames[0]
+            || "";
+
+        if (dom.profileRegion && defaultRegion) {
+            dom.profileRegion.value = defaultRegion;
+        }
+
+        syncProfileCitySelect(savedSelection.cityId || "1");
+        updateRegionUpdatedAtLabel();
+    } catch (error) {
+        console.warn("Не удалось подготовить личный кабинет:", error);
+        setProfileStatus(error.message || "Не удалось загрузить регионы.", "error");
+    }
+    // Обновим отображение имени пользователя и выбранного города после загрузки регионов
+    try {
+        renderCurrentUserName(loadSavedUserName());
+    } catch (e) {
+        // ignore
+    }
+}
+
+async function refreshStockForAllItems() {
+    if (!items.length) {
+        setProfileStatus("Товары ещё не загружены.", "error");
+        return;
+    }
+
+    const region = getSelectedRegionValue();
+    const { cityId, cityName } = getSelectedCityContext();
+
+    if (!region) {
+        setProfileStatus("Выберите регион.", "error");
+        return;
+    }
+
+    if (!cityId) {
+        setProfileStatus("Выберите магазин (город).", "error");
+        return;
+    }
+
+    if (!dom.refreshStockBtn) {
+        return;
+    }
+
+    saveProfileSelection(region, cityId);
+    const uniqueArticles = getAllArticlesFromSourceRows();
+    if (!uniqueArticles.length) {
+        setProfileStatus("Нет артикулов для загрузки остатков.", "error");
+        return;
+    }
+
+    const regionEntry = ensureCurrentRegionEntry();
+    if (!regionEntry) {
+        setProfileStatus("Не удалось инициализировать кеш выбранного региона.", "error");
+        return;
+    }
+
+    dom.refreshStockBtn.disabled = true;
+    let okCount = 0;
+    let failCount = 0;
+    const CONCURRENCY = STOCK_REFRESH_CONCURRENCY;
+
+    setProfileStatus(`Загрузка: 0/${uniqueArticles.length}`, "");
+
+    const worker = async () => {
+        while (uniqueArticles.length) {
+            const article = uniqueArticles.shift();
+            if (!article) {
+                continue;
+            }
+
+            try {
+                const stockRecord = await fetchStockForArticle(cityId, cityName, article);
+                regionEntry.items[article] = stockRecord;
+                okCount += 1;
+            } catch (error) {
+                failCount += 1;
+                console.warn(`Ошибка загрузки остатков для ${article}:`, error);
+            }
+
+            const processed = okCount + failCount;
+            setProfileStatus(`Загрузка: ${processed}/${okCount + failCount + uniqueArticles.length}`, failCount ? "error" : "");
+        }
+    };
+
+    const workers = Array.from({ length: Math.min(CONCURRENCY, uniqueArticles.length) }, () => worker());
+    await Promise.all(workers);
+
+    regionEntry.updatedAt = Date.now();
+
+    saveStockCache();
+    updateRegionUpdatedAtLabel();
+    renderCards();
+
+    if (failCount > 0) {
+        setProfileStatus(`Готово: успешно ${okCount}, ошибок ${failCount}.`, "error");
+    } else {
+        setProfileStatus(`Готово: обновлено ${okCount} товаров.`, "ok");
+    }
+
+    dom.refreshStockBtn.disabled = false;
+}
+
 function normalizeHeader(value) {
     return (value || "").trim().toLowerCase();
 }
@@ -390,6 +1064,15 @@ function normalizeHeaderName(value) {
 
 function escapeRegExp(string) {
     return String(string).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function escapeHtml(value) {
+    return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
 }
 
 function normalizeArticleSearchInput(value) {
@@ -647,6 +1330,41 @@ function parsePercent(value) {
     return null;
 }
 
+function extractArticleFromText(value) {
+    const raw = String(value || "").trim();
+    if (!raw) {
+        return "";
+    }
+
+    const normalizedOnlyDigits = normalizeArticleSearchInput(raw);
+    if (normalizedOnlyDigits.length >= 5) {
+        return normalizedOnlyDigits;
+    }
+
+    const match = raw.match(/\b(\d{5,})\b/);
+    return match ? String(match[1]).trim() : "";
+}
+
+function resolveArticleFromRow(row, indices) {
+    return extractArticleFromText(row?.[ARTICLE_COLUMN_INDEX]);
+}
+
+function getAllArticlesFromSourceRows() {
+    if (!Array.isArray(sourceRows) || sourceRows.length <= 1 || !sourceBaseIndices) {
+        return [];
+    }
+
+    const unique = new Set();
+    sourceRows.slice(1).forEach((row) => {
+        const article = resolveArticleFromRow(row, sourceBaseIndices);
+        if (article) {
+            unique.add(article);
+        }
+    });
+
+    return [...unique];
+}
+
 function getProxyUrls(url) {
     return [
         `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
@@ -735,10 +1453,10 @@ function loadCsvCache() {
 }
 
 function buildItem(row, indices) {
-    const article = String(row[indices.article] || "").trim();
+    const article = resolveArticleFromRow(row, indices);
 
     // title: prefer columns C and D (brand + model). If empty, fall back to detected title column.
-    const c = String(row[2] || "").trim();
+    const c = String(row[ARTICLE_COLUMN_INDEX] || "").trim();
     const d = String(row[3] || "").trim();
     let title = [c, d].filter(Boolean).join(' ').trim();
     if (!title && typeof indices.title === 'number' && indices.title >= 0) {
@@ -840,10 +1558,13 @@ function createCard(item) {
     const clone = dom.template.content.cloneNode(true);
     const card = clone.querySelector(".card");
     const image = clone.querySelector(".photo");
-    const articleEl = clone.querySelector(".card-article");
+    const titleEl = clone.querySelector(".card-title");
     const priceEl = clone.querySelector(".card-price");
+    const articleEl = clone.querySelector(".card-article");
+    const stockInfoEl = clone.querySelector(".card-stock-info");
     const modelEl = clone.querySelector(".card-model");
     const starsEl = clone.querySelector(".card-stars");
+    const stockRecord = getStockRecordByArticle(item.article);
     // compute display stars: prefer explicit percent (item.percent) when available
     let display = 0;
     if (typeof item.percent === 'number') {
@@ -894,18 +1615,29 @@ function createCard(item) {
     image.addEventListener('load', () => {
         image.classList.remove('no-photo');
     });
-    articleEl.textContent = item.title;
-    // show only article without percent
-    priceEl.textContent = `#${item.article}`;
-    priceEl.classList.add("card-article-link");
-    priceEl.title = "Двойной клик: открыть в этой вкладке";
+    titleEl.textContent = item.title;
+    priceEl.textContent = `Цена: ${formatMoneyKzt(stockRecord?.price)}`;
+        articleEl.textContent = `Артикул: #${item.article}`;
+
+    priceEl.title = stockRecord
+        ? `Остаток: ${Number.isFinite(Number(stockRecord.count)) ? Number(stockRecord.count) : 0}`
+        : "Цена и остатки будут доступны после загрузки в личном кабинете";
+
+    if (stockInfoEl) {
+        const count = Number.isFinite(Number(stockRecord?.count)) ? Number(stockRecord.count) : 0;
+        stockInfoEl.textContent = count > 0 ? String(count) : "i";
+        stockInfoEl.title = stockRecord
+            ? `Показать остатки (${count})`
+            : "Нет данных по остаткам. Обновите в личном кабинете";
+    }
+
     modelEl.textContent = item.category;
 
-    priceEl.addEventListener("click", (event) => {
+    titleEl.addEventListener("click", (event) => {
         event.stopPropagation();
     });
 
-    priceEl.addEventListener("dblclick", (event) => {
+    titleEl.addEventListener("dblclick", (event) => {
         event.preventDefault();
         event.stopPropagation();
 
@@ -917,6 +1649,14 @@ function createCard(item) {
         saveQuickReturnState();
         window.location.assign(url);
     });
+
+    if (stockInfoEl) {
+        stockInfoEl.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            showStockInfoModal(item);
+        });
+    }
 
     card.addEventListener("click", () => {
         if (item.image) {
@@ -952,6 +1692,23 @@ function updateSummary(total) {
 
 function filterItems() {
     return items.filter((item) => {
+        const stockRecord = getStockRecordByArticle(item.article);
+
+        if (hideZeroPrice && stockRecord && Number(stockRecord.price || 0) <= 0) {
+            return false;
+        }
+
+        if (hideNoStock) {
+            // If no stock data exists for article, treat it as "no stock" and hide.
+            if (!stockRecord) {
+                return false;
+            }
+
+            if (Number(stockRecord.count || 0) <= 0) {
+                return false;
+            }
+        }
+
         if (activeCategory !== CATEGORY_ALL && item.category !== activeCategory) {
             return false;
         }
@@ -1184,8 +1941,101 @@ function bindEvents() {
             closeMonthDrawer();
             hideViewer();
             stopQrScanner();
+            closeProfileModal();
+            closeStockInfoModal();
         }
     });
+
+    if (dom.currentUser) {
+        dom.currentUser.addEventListener("click", openProfileModal);
+        dom.currentUser.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                openProfileModal();
+            }
+        });
+    }
+
+    if (dom.profileRegion) {
+        dom.profileRegion.addEventListener("change", () => {
+            syncProfileCitySelect();
+            saveProfileSelection(getSelectedRegionValue(), dom.profileCity?.value || "");
+            updateRegionUpdatedAtLabel();
+
+            const cachedRegion = getCurrentRegionEntry();
+            if (cachedRegion?.updatedAt) {
+                setProfileStatus("Остатки загружены.", "ok");
+            } else {
+                setProfileStatus("Требуется загрузка остатков.", "error");
+            }
+
+            renderCards();
+            // Обновим кнопку профиля (имя + город)
+            try { renderCurrentUserName(loadSavedUserName()); } catch (e) { }
+        });
+    }
+
+    if (dom.profileCity) {
+        dom.profileCity.addEventListener("change", () => {
+            saveProfileSelection(getSelectedRegionValue(), dom.profileCity?.value || "");
+            updateRegionUpdatedAtLabel();
+
+            const cachedRegion = getCurrentRegionEntry();
+            if (cachedRegion?.updatedAt) {
+                setProfileStatus("Остатки загружены.", "ok");
+            } else {
+                setProfileStatus("Требуется загрузка остатков.", "error");
+            }
+
+            renderCards();
+            // Обновим кнопку профиля (имя + город)
+            try { renderCurrentUserName(loadSavedUserName()); } catch (e) { }
+        });
+    }
+
+    if (dom.hideZeroPrice) {
+        dom.hideZeroPrice.addEventListener("change", () => {
+            hideZeroPrice = Boolean(dom.hideZeroPrice.checked);
+            saveProfileFilters();
+            renderCards();
+        });
+    }
+
+    if (dom.hideNoStock) {
+        dom.hideNoStock.addEventListener("change", () => {
+            hideNoStock = Boolean(dom.hideNoStock.checked);
+            saveProfileFilters();
+            renderCards();
+        });
+    }
+
+    if (dom.refreshStockBtn) {
+        dom.refreshStockBtn.addEventListener("click", refreshStockForAllItems);
+    }
+
+    if (dom.closeProfileModal) {
+        dom.closeProfileModal.addEventListener("click", closeProfileModal);
+    }
+
+    if (dom.closeProfileFooterBtn) {
+        dom.closeProfileFooterBtn.addEventListener("click", closeProfileModal);
+    }
+
+    if (dom.profileBackdrop) {
+        dom.profileBackdrop.addEventListener("click", closeProfileModal);
+    }
+
+    if (dom.closeStockInfoModal) {
+        dom.closeStockInfoModal.addEventListener("click", closeStockInfoModal);
+    }
+
+    if (dom.closeStockInfoFooterBtn) {
+        dom.closeStockInfoFooterBtn.addEventListener("click", closeStockInfoModal);
+    }
+
+    if (dom.stockInfoBackdrop) {
+        dom.stockInfoBackdrop.addEventListener("click", closeStockInfoModal);
+    }
 
     window.addEventListener("pagehide", saveQuickReturnState);
 
@@ -1627,13 +2477,13 @@ async function loadProducts() {
     const headers = rows[0] || [];
     const baseIndices = {
         title: findColumnIndex(headers, ["sulpak article+name", "sulpak article + name", "sulpak article name", "sulpak article", "name", "product name"]),
-        article: findColumnIndex(headers, ["sulpak article", "article", "sulpak article+name", "sku", "artikul"]),
+        article: ARTICLE_COLUMN_INDEX,
         category: findColumnIndex(headers, ["category", "категория", "brand"]),
     };
 
     const warnings = [];
-    if (baseIndices.article === -1) {
-        const message = "Колонка 'Sulpak Article' не найдена в CSV. Нельзя определить товары без артикула.";
+    if (!rows.slice(1).some((row) => extractArticleFromText(row?.[ARTICLE_COLUMN_INDEX]))) {
+        const message = "В колонке C не найдены артикулы. Проверьте данные CSV.";
         loadError = message;
         dom.grid.textContent = message;
         dom.resultCount.textContent = "Ошибка загрузки товаров";

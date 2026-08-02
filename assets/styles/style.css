@@ -186,6 +186,14 @@ body.auth-locked #viewer{
     max-width:48vw;
     overflow:hidden;
     text-overflow:ellipsis;
+    text-align:right;
+    cursor:pointer;
+    transition:background-color .2s ease, border-color .2s ease;
+}
+
+.current-user:hover{
+    background:rgba(255,255,255,.14);
+    border-color:rgba(255,255,255,.3);
 }
 
 .current-user.hidden{
@@ -285,6 +293,7 @@ body.auth-locked #viewer{
 .categories-toggle-side:focus-visible,
 .month-toggle-side:focus-visible,
 .reset-filters-side:focus-visible,
+.current-user:focus-visible,
 .categoryButton:focus-visible,
 .star:focus-visible,
 .scroll-top:focus-visible,
@@ -1064,15 +1073,32 @@ body.auth-locked #viewer{
         height:120px;
     }
 
-    .card-article{
-        padding:6px 8px;
-        font-size:0.8rem;
+    .card-meta{
+        padding:10px 44px 7px 9px;
+        gap:4px;
+    }
+
+    .card-title{
+        font-size:0.76rem;
         line-height:1.2;
     }
 
     .card-price{
-        padding:4px 6px;
-        font-size:0.75rem;
+        padding:3px 6px;
+        font-size:0.72rem;
+    }
+
+    .card-article{
+        font-size:0.7rem;
+    }
+
+    .card-stock-info{
+        width:30px;
+        height:30px;
+        top:8px;
+        right:8px;
+        border-radius:10px;
+        font-size:.78rem;
     }
 
     .card-model{
@@ -1289,36 +1315,69 @@ body.auth-locked #viewer{
 /* ---------- Артикул ---------- */
 
 .card-meta{
-    padding:12px 16px 6px;
+    position:relative;
+    padding:12px 54px 8px 14px;
     display:flex;
-    align-items:center;
-    justify-content:center;
-    gap:12px;
-    flex-wrap:wrap;
+    flex-direction:column;
+    align-items:flex-start;
+    gap:6px;
 }
 
-.card-article{
+.card-title{
 
-    text-align:center;
+    text-align:left;
 
-    font-size:.95rem;
+    font-size:.93rem;
 
     font-weight:700;
     padding:0;
 
-    color:#6fa8ff;
+    color:#d6e3ff;
 
     word-break:break-word;
 
 }
 
 .card-price{
-    font-size:.95rem;
+    font-size:.88rem;
     font-weight:600;
-    color:#d6e3ff;
-    background:rgba(255,255,255,.06);
-    padding:4px 10px;
-    border-radius:999px;
+    color:#8ec5ff;
+    background:rgba(45,125,255,.14);
+    padding:3px 10px;
+    border-radius:10px;
+    white-space:nowrap;
+}
+
+.card-article{
+    text-align:left;
+    font-size:.82rem;
+    font-weight:600;
+    color:#9aa5b8;
+    padding:0;
+}
+
+.card-stock-info{
+    position:absolute;
+    right:12px;
+    top:12px;
+    width:38px;
+    height:38px;
+    border-radius:12px;
+    border:1px solid rgba(45,125,255,.46);
+    background:linear-gradient(135deg, rgba(45,125,255,.34), rgba(45,125,255,.2));
+    color:#f2f8ff;
+    font-weight:800;
+    font-size:.95rem;
+    cursor:pointer;
+    box-shadow:0 10px 18px rgba(5,18,40,.28);
+    transition:transform .18s ease, background-color .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+
+.card-stock-info:hover{
+    transform:translateY(-1px);
+    background:linear-gradient(135deg, rgba(45,125,255,.48), rgba(45,125,255,.3));
+    border-color:rgba(120,178,255,.72);
+    box-shadow:0 12px 24px rgba(5,18,40,.34);
 }
 
 /* ---------- Модель ---------- */
@@ -1604,6 +1663,17 @@ body.auth-locked #viewer{
     transition:.2s ease;
 }
 
+select.auth-input{
+    background:#202b40;
+    color:#f4f7fb;
+}
+
+select.auth-input option,
+select.auth-input optgroup{
+    background:#1a2336;
+    color:#e7eefc;
+}
+
 .auth-input:focus{
     border-color:var(--primary);
     box-shadow:0 0 0 3px rgba(45,125,255,.2);
@@ -1613,6 +1683,93 @@ body.auth-locked #viewer{
     min-height:20px;
     color:#ff8f8f;
     font-size:.88rem;
+}
+
+.auth-error.ok{
+    color:#8ff0b0;
+}
+
+.profile-content{
+    max-width:520px;
+}
+
+.profile-body{
+    display:grid;
+    gap:10px;
+}
+
+.profile-help{
+    margin:0 0 6px;
+    color:var(--muted);
+}
+
+.profile-status{
+    margin-top:4px;
+}
+
+.profile-updated-at{
+    margin:2px 0 0;
+    color:var(--muted);
+    font-size:.86rem;
+}
+
+.profile-settings{
+    display:grid;
+    gap:8px;
+    margin-top:2px;
+}
+
+.profile-check{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    color:var(--text);
+    font-size:.9rem;
+}
+
+.profile-check input{
+    width:16px;
+    height:16px;
+}
+
+.stock-info-content{
+    max-width:560px;
+}
+
+.stock-info-body p{
+    margin:0 0 8px;
+}
+
+.stock-info-list{
+    list-style:none;
+    margin:10px 0 0;
+    padding:0;
+    display:grid;
+    gap:8px;
+    max-height:240px;
+    overflow:auto;
+}
+
+.stock-info-list li{
+    display:grid;
+    gap:4px;
+    padding:10px 12px;
+    border:1px solid var(--border);
+    border-radius:10px;
+    background:rgba(255,255,255,.04);
+}
+
+.stock-info-list li strong{
+    color:var(--text);
+}
+
+.stock-info-list li span{
+    color:var(--muted);
+    font-size:.9rem;
+}
+
+.stock-info-empty{
+    color:var(--muted);
 }
 
 .auth-submit{

@@ -5,5 +5,14 @@ window.BN_CONFIG = {
 
   // Default password for client-side login gate.
   // Keep the real value only in public/runtime-config.js (ignored by git).
-  defaultPassword: "REPLACE_ME"
+  defaultPassword: "REPLACE_ME",
+
+  // Sulpak stock proxy base URL.
+  sulpakProxyBase: "http://127.0.0.1:8080",
+
+  // Parallel requests for stock refresh (1..30).
+  stockRefreshConcurrency: 12,
+
+  // Client timeout for one stock request.
+  stockFetchTimeoutMs: 12000
 };

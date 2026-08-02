@@ -215,6 +215,60 @@
     </div>
 </div>
 
+<div id="profileModal" class="install-modal hidden" role="dialog" aria-modal="true" aria-labelledby="profileTitle">
+    <div class="modal-backdrop" id="profileBackdrop"></div>
+    <div class="modal-content profile-content">
+        <div class="modal-header">
+            <h2 id="profileTitle">Личный кабинет</h2>
+            <button id="closeProfileModal" type="button" class="close-btn" aria-label="Закрыть">×</button>
+        </div>
+        <div class="modal-body profile-body">
+            <p class="profile-help">Выберите регион и магазин. По кнопке ниже будут загружены цены и остатки по всем товарам.</p>
+
+            <label class="auth-label" for="profileRegion">Регион</label>
+            <select id="profileRegion" class="auth-input"></select>
+
+            <label class="auth-label" for="profileCity">Магазин (город)</label>
+            <select id="profileCity" class="auth-input"></select>
+
+            <p id="profileRegionUpdatedAt" class="profile-updated-at">Последнее обновление по региону: -</p>
+
+            <div class="profile-settings">
+                <label class="profile-check">
+                    <input id="hideZeroPrice" type="checkbox">
+                    <span>Не показывать товары с ценой 0</span>
+                </label>
+                <label class="profile-check">
+                    <input id="hideNoStock" type="checkbox">
+                    <span>Не показывать товары без точек с остатками</span>
+                </label>
+            </div>
+
+            <div id="profileStatus" class="auth-error profile-status" aria-live="polite"></div>
+        </div>
+        <div class="modal-footer">
+            <button id="refreshStockBtn" type="button" class="btn-primary">Загрузить остатки</button>
+            <button id="closeProfileFooterBtn" type="button" class="btn-secondary">Закрыть</button>
+        </div>
+    </div>
+</div>
+
+<div id="stockInfoModal" class="install-modal hidden" role="dialog" aria-modal="true" aria-labelledby="stockInfoTitle">
+    <div class="modal-backdrop" id="stockInfoBackdrop"></div>
+    <div class="modal-content stock-info-content">
+        <div class="modal-header">
+            <h2 id="stockInfoTitle">Остатки по товару</h2>
+            <button id="closeStockInfoModal" type="button" class="close-btn" aria-label="Закрыть">×</button>
+        </div>
+        <div class="modal-body">
+            <div id="stockInfoBody" class="stock-info-body"></div>
+        </div>
+        <div class="modal-footer">
+            <button id="closeStockInfoFooterBtn" type="button" class="btn-secondary">Закрыть</button>
+        </div>
+    </div>
+</div>
+
 
 
 <!-- ====================================== -->
@@ -239,8 +293,10 @@
         </div>
 
         <div class="card-meta">
-            <div class="card-article"></div>
+            <div class="card-title"></div>
             <div class="card-price"></div>
+            <div class="card-article"></div>
+            <button type="button" class="card-stock-info" aria-label="Показать остатки">i</button>
         </div>
 
         <div class="card-model">
