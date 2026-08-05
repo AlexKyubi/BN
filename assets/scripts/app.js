@@ -32,7 +32,9 @@ const LANGUAGE_ID = 3;
 const STOCK_CONFIG = {
     proxyBase: String(runtimeConfig.sulpakProxyBase || DEFAULT_PROXY_BASE).trim(),
 };
-const STOCK_FETCH_TIMEOUT_MS = Math.max(3000, Number(runtimeConfig.stockFetchTimeoutMs || 12000));
+const STOCK_FETCH_TIMEOUT_MS = Math.max(0, Number(runtimeConfig.stockFetchTimeoutMs || 600000));
+const REGION_SYNC_TIMEOUT_MS = Math.max(0, Number(runtimeConfig.regionSyncTimeoutMs || 0));
+const AUTH_VALIDATE_TIMEOUT_MS = Math.max(0, Number(runtimeConfig.authValidateTimeoutMs || 15000));
 const ARTICLE_COLUMN_INDEX = 2; // Column C
 const DEFAULT_MONTH_COLUMN_INDEX = 4; // Column E
 
@@ -286,7 +288,11 @@ async function startApp() {
     hydrateQuickReturnState();
     await loadProducts();
     renderCards();
-    await syncCurrentRegionStock({ forceFull: false, silent: true });
+    try {
+        await syncCurrentRegionStock({ forceFull: false, silent: true });
+    } catch (error) {
+        console.warn("Не удалось выполнить стартовую синхронизацию региона:", error);
+    }
 }
 
 window.__BN_TEST__ = {
@@ -794,7 +800,9 @@ async function fetchStockForArticle(cityId, cityName, article, options = {}) {
 
 async function fetchRegionStockSnapshot(cityId, sinceToken = null) {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), STOCK_FETCH_TIMEOUT_MS);
+    const timeoutId = REGION_SYNC_TIMEOUT_MS > 0
+        ? setTimeout(() => controller.abort(), REGION_SYNC_TIMEOUT_MS)
+        : null;
     const requestUrl = buildRegionStockUrl({ cityId, languageId: LANGUAGE_ID, sinceToken });
 
     let response;
@@ -802,15 +810,17 @@ async function fetchRegionStockSnapshot(cityId, sinceToken = null) {
         response = await fetch(requestUrl, {
             method: "GET",
             headers: { Accept: "application/json" },
-            signal: controller.signal,
+            signal: timeoutId ? controller.signal : undefined,
         });
     } catch (error) {
         if (error && error.name === "AbortError") {
-            throw new Error(`timeout_${STOCK_FETCH_TIMEOUT_MS}ms`);
+            throw new Error(`timeout_${REGION_SYNC_TIMEOUT_MS}ms`);
         }
         throw error;
     } finally {
-        clearTimeout(timeoutId);
+        if (timeoutId) {
+            clearTimeout(timeoutId);
+        }
     }
 
     const payload = await parseResponseBody(response);
@@ -829,7 +839,9 @@ async function validateSheetUrlWithServer(sheetUrl) {
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), STOCK_FETCH_TIMEOUT_MS);
+    const timeoutId = AUTH_VALIDATE_TIMEOUT_MS > 0
+        ? setTimeout(() => controller.abort(), AUTH_VALIDATE_TIMEOUT_MS)
+        : null;
     const requestUrl = buildAuthValidateUrl(normalizedSheetUrl);
 
     let response;
@@ -837,15 +849,17 @@ async function validateSheetUrlWithServer(sheetUrl) {
         response = await fetch(requestUrl, {
             method: "GET",
             headers: { Accept: "application/json" },
-            signal: controller.signal,
+            signal: timeoutId ? controller.signal : undefined,
         });
     } catch (error) {
         if (error && error.name === "AbortError") {
-            return { ok: false, message: `Сервер авторизации не ответил за ${STOCK_FETCH_TIMEOUT_MS} мс.` };
+            return { ok: false, message: `Сервер авторизации не ответил за ${AUTH_VALIDATE_TIMEOUT_MS} мс.` };
         }
         return { ok: false, message: "Не удалось проверить ссылку на сервере." };
     } finally {
-        clearTimeout(timeoutId);
+        if (timeoutId) {
+            clearTimeout(timeoutId);
+        }
     }
 
     const payload = await parseResponseBody(response);

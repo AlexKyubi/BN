@@ -59,7 +59,9 @@ export function normalizeStockRecord(payload, fallbackCityName = "") {
 
 export async function fetchStockForArticle(cityId, cityName, article, options = {}) {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), constants.STOCK_FETCH_TIMEOUT_MS);
+    const timeoutId = constants.STOCK_FETCH_TIMEOUT_MS > 0
+        ? setTimeout(() => controller.abort(), constants.STOCK_FETCH_TIMEOUT_MS)
+        : null;
 
     const requestUrl = buildStockUrl({
         cityId,
@@ -72,7 +74,7 @@ export async function fetchStockForArticle(cityId, cityName, article, options = 
         response = await fetch(requestUrl, {
             method: "GET",
             headers: { Accept: "application/json" },
-            signal: controller.signal,
+            signal: timeoutId ? controller.signal : undefined,
         });
     } catch (error) {
         if (error && error.name === "AbortError") {
@@ -80,7 +82,9 @@ export async function fetchStockForArticle(cityId, cityName, article, options = 
         }
         throw error;
     } finally {
-        clearTimeout(timeoutId);
+        if (timeoutId) {
+            clearTimeout(timeoutId);
+        }
     }
 
     const payload = await parseResponseBody(response);

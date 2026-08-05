@@ -27,7 +27,7 @@ export const constants = {
         proxyBase: String(runtimeConfig.sulpakProxyBase || "https://proxy.bn.alexkyubi.com").trim(),
     },
     STOCK_REFRESH_CONCURRENCY: Math.max(1, Math.min(30, Number(runtimeConfig.stockRefreshConcurrency || 12))),
-    STOCK_FETCH_TIMEOUT_MS: Math.max(3000, Number(runtimeConfig.stockFetchTimeoutMs || 12000)),
+    STOCK_FETCH_TIMEOUT_MS: Math.max(0, Number(runtimeConfig.stockFetchTimeoutMs || 600000)),
     ARTICLE_COLUMN_INDEX: 2,
     DEFAULT_MONTH_COLUMN_INDEX: 4,
 };

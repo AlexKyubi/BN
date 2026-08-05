@@ -9,6 +9,12 @@ window.BN_CONFIG = {
   // Parallel requests for stock refresh (1..30).
   stockRefreshConcurrency: 12,
 
-  // Client timeout for one stock request.
-  stockFetchTimeoutMs: 12000
+  // Client timeout for one stock request to proxy. Use 0 to disable abort.
+  stockFetchTimeoutMs: 600000,
+
+  // First region bootstrap may be long on a cold server start. 0 = wait without abort.
+  regionSyncTimeoutMs: 0,
+
+  // Auth validation should fail fast if proxy is unavailable.
+  authValidateTimeoutMs: 15000
 };
