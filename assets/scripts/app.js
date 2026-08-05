@@ -2060,17 +2060,11 @@ let isFrontCamera = false; // Флаг для определения типа к
 // PWA Install
 let deferredPrompt = null;
 const installBtn = document.getElementById("installBtn");
-const installModal = document.getElementById("installModal");
-const installInstructions = document.getElementById("installInstructions");
-const closeInstallModal = document.getElementById("closeInstallModal");
-const confirmInstall = document.getElementById("confirmInstall");
-const cancelInstall = document.getElementById("cancelInstall");
-const modalBackdrop = installModal?.querySelector(".modal-backdrop");
+let installPromptInFlight = false;
 
 // Логирование инициализации PWA
 console.log('🔍 PWA Инициализация:');
 console.log('installBtn:', !!installBtn);
-console.log('installModal:', !!installModal);
 console.log('Protocol:', window.location.protocol);
 
 // Слушаем beforeinstallprompt для PWA установки
@@ -2108,104 +2102,47 @@ function hideInstallButton() {
     }
 }
 
-function showInstallModal() {
-    const userAgent = navigator.userAgent.toLowerCase();
-    let instructions = "";
-    
-    if (userAgent.includes("chrome") && !userAgent.includes("edg")) {
-        instructions = "<strong>Установка на Android:</strong><p>Нажмите кнопку <strong>\"Установить\"</strong> внизу. Приложение появится на главном экране.</p>";
-        confirmInstall.textContent = "Установить";
-        confirmInstall.style.display = "block";
-    } else if (userAgent.includes("safari") && userAgent.includes("iphone")) {
-        instructions = "<strong>Установка на iPhone:</strong><ol><li>Нажмите кнопку \"Поделиться\" (внизу экрана)</li><li>Выберите \"На экран Домой\"</li><li>Нажмите \"Добавить\"</li></ol><p>Приложение появится на главном экране!</p>";
-        confirmInstall.style.display = "none";
-    } else if (userAgent.includes("yabrowser")) {
-        instructions = "<strong>Установка в Яндекс браузере:</strong><ol><li>Нажмите три точки (⋮) в меню</li><li>Выберите \"Добавить на гл. экран\"</li></ol><p>Ярлык приложения появится на главном экране.</p>";
-        confirmInstall.style.display = "none";
-    } else if (userAgent.includes("firefox")) {
-        instructions = "<strong>Установка в Firefox:</strong><ol><li>Нажмите на иконку дома (⌂) в адресной строке</li><li>Выберите \"Добавить в Домой\"</li></ol>";
-        confirmInstall.style.display = "none";
-    } else {
-        instructions = "<strong>Как установить приложение:</strong><p>В вашем браузере обычно есть опция добавления на главный экран. Поищите в меню браузера или нажмите значок общего доступа.</p>";
-        confirmInstall.style.display = "none";
+async function triggerInstallPrompt() {
+    if (!deferredPrompt || installPromptInFlight) {
+        console.warn("⚠️ Системный install prompt сейчас недоступен");
+        hideInstallButton();
+        return;
     }
-    
-    installInstructions.innerHTML = instructions;
-    installModal.classList.remove("hidden");
+
+    installPromptInFlight = true;
+    installBtn?.setAttribute("disabled", "disabled");
+
+    try {
+        await deferredPrompt.prompt();
+        const choiceResult = await deferredPrompt.userChoice;
+        console.log("📱 Результат установки:", choiceResult.outcome);
+    } catch (error) {
+        console.error("❌ Ошибка показа install prompt:", error);
+    } finally {
+        deferredPrompt = null;
+        installPromptInFlight = false;
+        installBtn?.removeAttribute("disabled");
+        hideInstallButton();
+    }
 }
 
 // Обработчик клика на кнопку установки
 if (installBtn) {
     installBtn.addEventListener("click", () => {
-        if (deferredPrompt) {
-            deferredPrompt.prompt();
-            deferredPrompt.userChoice.then((choiceResult) => {
-                if (choiceResult.outcome === "accepted") {
-                    console.log("Приложение установлено");
-                }
-                deferredPrompt = null;
-                hideInstallButton();
-                installModal.classList.add("hidden");
-            });
-        } else {
-            // Если нет beforeinstallprompt, показываем инструкции
-            showInstallModal();
-        }
+        triggerInstallPrompt();
     });
 }
 
-// Закрытие модали
-if (closeInstallModal) {
-    closeInstallModal.addEventListener("click", () => {
-        installModal.classList.add("hidden");
-    });
-}
-
-if (cancelInstall) {
-    cancelInstall.addEventListener("click", () => {
-        installModal.classList.add("hidden");
-    });
-}
-
-if (modalBackdrop) {
-    modalBackdrop.addEventListener("click", () => {
-        installModal.classList.add("hidden");
-    });
-}
-
-if (confirmInstall) {
-    confirmInstall.addEventListener("click", () => {
-        if (deferredPrompt) {
-            deferredPrompt.prompt();
-            deferredPrompt.userChoice.then((choiceResult) => {
-                if (choiceResult.outcome === "accepted") {
-                    console.log("Приложение установлено");
-                }
-                deferredPrompt = null;
-                hideInstallButton();
-                installModal.classList.add("hidden");
-            });
-        }
-    });
-}
+window.addEventListener("appinstalled", () => {
+    console.log("✅ Приложение установлено");
+    deferredPrompt = null;
+    hideInstallButton();
+});
 
 function isMobileDevice() {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
         || window.innerWidth <= 650;
 }
-
-// Fallback: показываем кнопку install всегда, даже если beforeinstallprompt
-// не сработал (Yandex Browser, Firefox, Safari и т.п. не поддерживают это событие)
-document.addEventListener('DOMContentLoaded', () => {
-    if (installBtn && !deferredPrompt) {
-        setTimeout(() => {
-            if (!deferredPrompt && installBtn.classList.contains('hidden')) {
-                installBtn.classList.remove('hidden');
-                console.log('📥 Кнопка install показана (fallback mode, ручные инструкции)');
-            }
-        }, 3000);
-    }
-});
 
 async function startQrScanner() {
     if (!isMobileDevice()) {
