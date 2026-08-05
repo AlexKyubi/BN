@@ -875,6 +875,22 @@ async function validateSheetUrlWithServer(sheetUrl) {
 
     const normalizedAllowedLocalSheetUrl = normalizeGoogleSheetCsvUrlFromAuth(GOOGLE_SHEET_URL);
 
+    // Приоритет локальной проверки: устраняет мобильные сетевые сбои/блокировки CORS
+    // и оставляет строгий доступ только к разрешённой таблице.
+    if (normalizedAllowedLocalSheetUrl) {
+        if (normalizedSheetUrl !== normalizedAllowedLocalSheetUrl) {
+            return {
+                ok: false,
+                message: "Доступ запрещён: ссылка таблицы не совпадает с разрешённой.",
+            };
+        }
+
+        return {
+            ok: true,
+            normalizedSheetUrl,
+        };
+    }
+
     const validateWithLocalConfig = () => {
         if (!normalizedAllowedLocalSheetUrl) {
             return {
