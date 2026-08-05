@@ -35,6 +35,7 @@ const STOCK_CONFIG = {
 const STOCK_FETCH_TIMEOUT_MS = Math.max(0, Number(runtimeConfig.stockFetchTimeoutMs || 600000));
 const REGION_SYNC_TIMEOUT_MS = Math.max(0, Number(runtimeConfig.regionSyncTimeoutMs || 0));
 const AUTH_VALIDATE_TIMEOUT_MS = Math.max(0, Number(runtimeConfig.authValidateTimeoutMs || 15000));
+const CATALOG_REFRESH_INTERVAL_MS = Math.max(60_000, Number(runtimeConfig.catalogRefreshIntervalMs || 900_000));
 const ARTICLE_COLUMN_INDEX = 2; // Column C
 const DEFAULT_MONTH_COLUMN_INDEX = 4; // Column E
 
@@ -106,6 +107,8 @@ let stockCache = { regions: {} };
 let stockSyncTokens = {};
 let hideZeroPrice = false;
 let hideNoStock = false;
+let catalogRefreshTimerId = null;
+let catalogRefreshInFlight = false;
 
 function isAuthorizedOnDevice() {
     try {
@@ -288,10 +291,42 @@ async function startApp() {
     hydrateQuickReturnState();
     await loadProducts();
     renderCards();
+    scheduleCatalogRefresh();
     try {
         await syncCurrentRegionStock({ forceFull: false, silent: true });
     } catch (error) {
         console.warn("Не удалось выполнить стартовую синхронизацию региона:", error);
+    }
+}
+
+function scheduleCatalogRefresh() {
+    if (catalogRefreshTimerId) {
+        clearInterval(catalogRefreshTimerId);
+    }
+
+    catalogRefreshTimerId = setInterval(() => {
+        void refreshCatalogInBackground();
+    }, CATALOG_REFRESH_INTERVAL_MS);
+}
+
+async function refreshCatalogInBackground() {
+    if (catalogRefreshInFlight) {
+        return;
+    }
+
+    // Если вкладка неактивна, пропускаем итерацию, чтобы не тратить сеть и CPU.
+    if (document.visibilityState !== "visible") {
+        return;
+    }
+
+    catalogRefreshInFlight = true;
+    try {
+        await loadProducts();
+        renderCards();
+    } catch (error) {
+        console.warn("Фоновое обновление каталога не удалось:", error);
+    } finally {
+        catalogRefreshInFlight = false;
     }
 }
 
