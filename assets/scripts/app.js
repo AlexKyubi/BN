@@ -873,6 +873,27 @@ async function validateSheetUrlWithServer(sheetUrl) {
         return { ok: false, message: "Введите корректную ссылку Google Sheets." };
     }
 
+    const normalizedAllowedLocalSheetUrl = normalizeGoogleSheetCsvUrlFromAuth(GOOGLE_SHEET_URL);
+
+    const validateWithLocalConfig = () => {
+        if (!normalizedAllowedLocalSheetUrl) {
+            return {
+                ok: false,
+                message: "Сервер проверки недоступен, а локальная разрешённая ссылка не настроена.",
+            };
+        }
+
+        if (normalizedSheetUrl !== normalizedAllowedLocalSheetUrl) {
+            return {
+                ok: false,
+                message: "Сервер проверки недоступен. Введите ссылку, совпадающую с разрешённой таблицей.",
+            };
+        }
+
+        console.warn("⚠️ Сервер проверки недоступен, использована локальная проверка ссылки.");
+        return { ok: true, normalizedSheetUrl };
+    };
+
     const controller = new AbortController();
     const timeoutId = AUTH_VALIDATE_TIMEOUT_MS > 0
         ? setTimeout(() => controller.abort(), AUTH_VALIDATE_TIMEOUT_MS)
@@ -888,9 +909,9 @@ async function validateSheetUrlWithServer(sheetUrl) {
         });
     } catch (error) {
         if (error && error.name === "AbortError") {
-            return { ok: false, message: `Сервер авторизации не ответил за ${AUTH_VALIDATE_TIMEOUT_MS} мс.` };
+            return validateWithLocalConfig();
         }
-        return { ok: false, message: "Не удалось проверить ссылку на сервере." };
+        return validateWithLocalConfig();
     } finally {
         if (timeoutId) {
             clearTimeout(timeoutId);
