@@ -5,6 +5,15 @@ __pycache__/
 *.pyo
 *.egg-info/
 proxy_server.py
+requirements.txt
+server_config.json
+server_config.example.json
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+logs/
+backups/
+deploy/
 
 # Development tools
 .dev/

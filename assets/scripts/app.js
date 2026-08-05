@@ -1,3 +1,8 @@
+import { normalizeArticleSearchInput as normalizeArticleSearchInputFromUtils, normalizeFullName as normalizeFullNameFromUtils, parseCsv as parseCsvFromUtils } from "./modules/utils.js";
+import { buildItem as buildItemModule, buildSulpakCharacteristicsUrl as buildSulpakCharacteristicsUrlModule } from "./modules/catalog.js";
+import { fetchStockForArticle as fetchStockForArticleModule, formatMoneyKzt as formatMoneyKztModule } from "./modules/stock.js";
+import { normalizeGoogleSheetCsvUrl as normalizeGoogleSheetCsvUrlFromAuth, verifyCredentials as verifyCredentialsFromAuth } from "./modules/auth.js";
+
 const runtimeConfig =
     window.BN_CONFIG && typeof window.BN_CONFIG === "object"
         ? window.BN_CONFIG
@@ -17,19 +22,16 @@ const AUTH_USER_NAME_KEY = "bn_user_name_v1";
 const SHEET_URL_STORAGE_KEY = "bn_sheet_url_v1";
 const PROFILE_REGION_STORAGE_KEY = "bn_profile_region_v1";
 const PROFILE_CITY_STORAGE_KEY = "bn_profile_city_v1";
-const STOCK_CACHE_KEY = "bn_stock_cache_v1";
 const HIDE_ZERO_PRICE_STORAGE_KEY = "bn_hide_zero_price_v1";
 const HIDE_NO_STOCK_STORAGE_KEY = "bn_hide_no_stock_v1";
 const DEFAULT_PROXY_BASE = "https://proxy.bn.alexkyubi.com";
 const STOCK_PATH = "/stock";
+const REGION_STOCK_PATH = "/region-stock";
+const AUTH_VALIDATE_PATH = "/auth/validate";
 const LANGUAGE_ID = 3;
-const AUTH_CONFIG = {
-    defaultPassword: String(runtimeConfig.defaultPassword || "HaierGroup").trim(),
-};
 const STOCK_CONFIG = {
     proxyBase: String(runtimeConfig.sulpakProxyBase || DEFAULT_PROXY_BASE).trim(),
 };
-const STOCK_REFRESH_CONCURRENCY = Math.max(1, Math.min(30, Number(runtimeConfig.stockRefreshConcurrency || 12)));
 const STOCK_FETCH_TIMEOUT_MS = Math.max(3000, Number(runtimeConfig.stockFetchTimeoutMs || 12000));
 const ARTICLE_COLUMN_INDEX = 2; // Column C
 const DEFAULT_MONTH_COLUMN_INDEX = 4; // Column E
@@ -64,7 +66,6 @@ const dom = {
     authForm: document.getElementById("authForm"),
     authLogin: document.getElementById("authLogin"),
     authSheetUrl: document.getElementById("authSheetUrl"),
-    authPassword: document.getElementById("authPassword"),
     authError: document.getElementById("authError"),
     profileModal: document.getElementById("profileModal"),
     profileBackdrop: document.getElementById("profileBackdrop"),
@@ -100,6 +101,7 @@ let sourceBaseIndices = null;
 let sourceWarnings = [];
 let regionsModel = null;
 let stockCache = { regions: {} };
+let stockSyncTokens = {};
 let hideZeroPrice = false;
 let hideNoStock = false;
 
@@ -124,6 +126,16 @@ function saveAuthorizationOnDevice(fullName, sheetUrl) {
     }
 }
 
+function clearAuthorizationOnDevice() {
+    try {
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+        localStorage.removeItem(AUTH_USER_NAME_KEY);
+        localStorage.removeItem(SHEET_URL_STORAGE_KEY);
+    } catch (error) {
+        console.warn("Не удалось очистить статус авторизации:", error);
+    }
+}
+
 function loadSavedSheetUrl() {
     try {
         return (localStorage.getItem(SHEET_URL_STORAGE_KEY) || "").trim();
@@ -142,37 +154,7 @@ function getEffectiveSheetUrl() {
 }
 
 function isValidGoogleSheetCsvUrl(value) {
-    return Boolean(normalizeGoogleSheetCsvUrl(value));
-}
-
-function normalizeGoogleSheetCsvUrl(value) {
-    const input = String(value || "").trim();
-    if (!input) {
-        return "";
-    }
-
-    let url;
-    try {
-        url = new URL(input);
-    } catch (error) {
-        return "";
-    }
-
-    if (url.protocol !== "https:" || url.hostname !== "docs.google.com") {
-        return "";
-    }
-
-    const match = url.pathname.match(/^\/spreadsheets\/d\/([^/]+)\//i);
-    if (!match || !match[1]) {
-        return "";
-    }
-
-    const sheetId = match[1];
-    const hashGidMatch = (url.hash || "").match(/gid=(\d+)/i);
-    const gid = (url.searchParams.get("gid") || (hashGidMatch ? hashGidMatch[1] : "")).trim();
-    const gidPart = /^\d+$/.test(gid) ? `&gid=${gid}` : "";
-
-    return `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv${gidPart}`;
+    return Boolean(normalizeGoogleSheetCsvUrlFromAuth(value));
 }
 
 function loadSavedUserName() {
@@ -229,29 +211,9 @@ function hideAuthModal() {
     document.body.classList.remove("auth-locked");
 }
 
-function normalizeFullName(value) {
-    return String(value || "").replace(/\s+/g, " ").trim();
-}
-
 function isValidFullName(value) {
-    const normalized = normalizeFullName(value);
+    const normalized = normalizeFullNameFromUtils(value);
     return /^[A-Za-zА-Яа-яЁёІіЇїЄєҚқҢңҒғҮүҰұӨөҺһ-]+\s+[A-Za-zА-Яа-яЁёІіЇїЄєҚқҢңҒғҮүҰұӨөҺһ-]+(?:\s+[A-Za-zА-Яа-яЁёІіЇїЄєҚқҢңҒғҮүҰұӨөҺһ-]+)*$/.test(normalized);
-}
-
-function verifyCredentials(username, password) {
-    if (!AUTH_CONFIG.defaultPassword) {
-        return { ok: false, message: "Сервис не настроен: пароль входа не задан." };
-    }
-
-    if (!isValidFullName(username)) {
-        return { ok: false, message: "Введите логин в формате: Фамилия Имя." };
-    }
-
-    if (password !== AUTH_CONFIG.defaultPassword) {
-        return { ok: false, message: "Неверный пароль." };
-    }
-
-    return { ok: true, fullName: normalizeFullName(username) };
 }
 
 function clearAuthError() {
@@ -276,18 +238,17 @@ function bindAuthorizationEvents() {
 
         const username = (dom.authLogin?.value || "").trim();
         const rawSheetUrl = (dom.authSheetUrl?.value || "").trim();
-        const password = dom.authPassword?.value || "";
 
         clearAuthError();
 
-        if (!username || !password || !rawSheetUrl) {
-            setAuthError("Введите логин, ссылку таблицы и пароль.");
+        if (!username || !rawSheetUrl) {
+            setAuthError("Введите логин и ссылку таблицы.");
             return;
         }
 
-        const sheetUrl = normalizeGoogleSheetCsvUrl(rawSheetUrl);
+        const sheetUrl = normalizeGoogleSheetCsvUrlFromAuth(rawSheetUrl);
         if (!sheetUrl) {
-            setAuthError("Введите корректную ссылку Google Sheets (edit/export). Сервис сам преобразует ее в CSV.");
+            setAuthError("Введите корректную ссылку Google Sheets (edit/export). Сервис сам преобразует её для проверки.");
             return;
         }
 
@@ -295,13 +256,19 @@ function bindAuthorizationEvents() {
             dom.authSheetUrl.value = sheetUrl;
         }
 
-        const verified = verifyCredentials(username, password);
+        const verified = verifyCredentialsFromAuth(username);
         if (!verified.ok) {
             setAuthError(verified.message);
             return;
         }
 
-        saveAuthorizationOnDevice(verified.fullName, sheetUrl);
+        const authorization = await validateSheetUrlWithServer(sheetUrl);
+        if (!authorization.ok) {
+            setAuthError(authorization.message);
+            return;
+        }
+
+        saveAuthorizationOnDevice(verified.fullName, authorization.normalizedSheetUrl);
         renderCurrentUserName(verified.fullName);
         hideAuthModal();
         await startApp();
@@ -319,7 +286,14 @@ async function startApp() {
     hydrateQuickReturnState();
     await loadProducts();
     renderCards();
+    await syncCurrentRegionStock({ forceFull: false, silent: true });
 }
+
+window.__BN_TEST__ = {
+    get items() {
+        return items;
+    },
+};
 
 function saveQuickReturnState() {
     const uiState = {
@@ -383,7 +357,7 @@ function hydrateQuickReturnState() {
 
     activeCategory = uiState.activeCategory || CATEGORY_ALL;
     activeStars = Number(uiState.activeStars || 0);
-    searchQuery = normalizeArticleSearchInput(uiState.searchQuery || "");
+    searchQuery = normalizeArticleSearchInputFromUtils(uiState.searchQuery || "");
     pendingQuickReturnMonthColumn = Number.isFinite(Number(uiState.activeMonthColumn))
         ? Number(uiState.activeMonthColumn)
         : null;
@@ -400,7 +374,7 @@ function hydrateQuickReturnState() {
     }
 }
 
-function initAuthorization() {
+async function initAuthorization() {
     bindAuthorizationEvents();
     const savedUserName = loadSavedUserName();
     const savedSheetUrl = loadSavedSheetUrl();
@@ -410,6 +384,24 @@ function initAuthorization() {
     }
 
     if (isAuthorizedOnDevice()) {
+        const authorization = await validateSheetUrlWithServer(savedSheetUrl);
+        if (!authorization.ok) {
+            clearAuthorizationOnDevice();
+            if (dom.authSheetUrl) {
+                dom.authSheetUrl.value = "";
+            }
+            showAuthModal();
+            setAuthError(authorization.message);
+            return;
+        }
+
+        if (authorization.normalizedSheetUrl !== savedSheetUrl) {
+            saveAuthorizationOnDevice(savedUserName, authorization.normalizedSheetUrl);
+            if (dom.authSheetUrl) {
+                dom.authSheetUrl.value = authorization.normalizedSheetUrl;
+            }
+        }
+
         hideAuthModal();
         startApp();
         return;
@@ -481,45 +473,11 @@ function syncProfileFiltersUi() {
 }
 
 function loadStockCache() {
-    try {
-        const raw = localStorage.getItem(STOCK_CACHE_KEY);
-        if (!raw) {
-            return { regions: {} };
-        }
-
-        const parsed = JSON.parse(raw);
-        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-            return { regions: {} };
-        }
-
-        if (parsed.regions && typeof parsed.regions === "object" && !Array.isArray(parsed.regions)) {
-            return parsed;
-        }
-
-        // Backward compatibility with old cache format: article -> record.
-        return {
-            regions: {
-                legacy: {
-                    regionName: "legacy",
-                    cityId: "",
-                    cityName: "",
-                    updatedAt: 0,
-                    items: parsed,
-                },
-            },
-        };
-    } catch (error) {
-        console.warn("Не удалось загрузить кеш остатков:", error);
-        return { regions: {} };
-    }
+    return { regions: {} };
 }
 
 function saveStockCache() {
-    try {
-        localStorage.setItem(STOCK_CACHE_KEY, JSON.stringify(stockCache || { regions: {} }));
-    } catch (error) {
-        console.warn("Не удалось сохранить кеш остатков:", error);
-    }
+    // Источник истины - сервер и SQLite. На клиенте держим только сессионный in-memory кеш.
 }
 
 function buildRegionCacheKey(regionName, cityId) {
@@ -773,6 +731,26 @@ function buildStockUrl({ cityId, article, languageId }) {
     return url.toString();
 }
 
+function buildRegionStockUrl({ cityId, languageId, sinceToken = null }) {
+    const configuredBase = String(STOCK_CONFIG.proxyBase || DEFAULT_PROXY_BASE).trim();
+    const normalizedBase = configuredBase.endsWith("/") ? configuredBase.slice(0, -1) : configuredBase;
+    const url = new URL(`${normalizedBase}${REGION_STOCK_PATH}`, window.location.origin);
+    url.searchParams.set("cityId", String(cityId));
+    url.searchParams.set("languageId", String(languageId));
+    if (Number.isFinite(Number(sinceToken)) && Number(sinceToken) > 0) {
+        url.searchParams.set("since", String(Number(sinceToken)));
+    }
+    return url.toString();
+}
+
+function buildAuthValidateUrl(sheetUrl) {
+    const configuredBase = String(STOCK_CONFIG.proxyBase || DEFAULT_PROXY_BASE).trim();
+    const normalizedBase = configuredBase.endsWith("/") ? configuredBase.slice(0, -1) : configuredBase;
+    const url = new URL(`${normalizedBase}${AUTH_VALIDATE_PATH}`, window.location.origin);
+    url.searchParams.set("sheetUrl", String(sheetUrl || "").trim());
+    return url.toString();
+}
+
 async function parseResponseBody(response) {
     const text = await response.text();
     if (!text) {
@@ -810,11 +788,15 @@ function normalizeStockRecord(payload, fallbackCityName = "") {
     };
 }
 
-async function fetchStockForArticle(cityId, cityName, article) {
+async function fetchStockForArticle(cityId, cityName, article, options = {}) {
+    return fetchStockForArticleModule(cityId, cityName, article, options);
+}
+
+async function fetchRegionStockSnapshot(cityId, sinceToken = null) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), STOCK_FETCH_TIMEOUT_MS);
+    const requestUrl = buildRegionStockUrl({ cityId, languageId: LANGUAGE_ID, sinceToken });
 
-    const requestUrl = buildStockUrl({ cityId, article, languageId: LANGUAGE_ID });
     let response;
     try {
         response = await fetch(requestUrl, {
@@ -832,21 +814,112 @@ async function fetchStockForArticle(cityId, cityName, article) {
     }
 
     const payload = await parseResponseBody(response);
-
     if (!response.ok) {
         const message = payload?.error || payload?.message || `HTTP ${response.status}`;
         throw new Error(String(message));
     }
 
-    return normalizeStockRecord(payload, cityName);
+    return payload;
+}
+
+async function validateSheetUrlWithServer(sheetUrl) {
+    const normalizedSheetUrl = normalizeGoogleSheetCsvUrlFromAuth(sheetUrl);
+    if (!normalizedSheetUrl) {
+        return { ok: false, message: "Введите корректную ссылку Google Sheets." };
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), STOCK_FETCH_TIMEOUT_MS);
+    const requestUrl = buildAuthValidateUrl(normalizedSheetUrl);
+
+    let response;
+    try {
+        response = await fetch(requestUrl, {
+            method: "GET",
+            headers: { Accept: "application/json" },
+            signal: controller.signal,
+        });
+    } catch (error) {
+        if (error && error.name === "AbortError") {
+            return { ok: false, message: `Сервер авторизации не ответил за ${STOCK_FETCH_TIMEOUT_MS} мс.` };
+        }
+        return { ok: false, message: "Не удалось проверить ссылку на сервере." };
+    } finally {
+        clearTimeout(timeoutId);
+    }
+
+    const payload = await parseResponseBody(response);
+    if (!response.ok || payload?.authorized !== true) {
+        return {
+            ok: false,
+            message: payload?.message || "Доступ запрещён: ссылка таблицы не совпадает с разрешённой.",
+        };
+    }
+
+    return {
+        ok: true,
+        normalizedSheetUrl: String(payload?.normalizedSheetUrl || normalizedSheetUrl).trim(),
+    };
+}
+
+function getCurrentRegionSyncToken(regionName, cityId) {
+    const key = buildRegionCacheKey(regionName, cityId);
+    return Number(stockSyncTokens[key] || 0);
+}
+
+function setCurrentRegionSyncToken(regionName, cityId, token) {
+    const key = buildRegionCacheKey(regionName, cityId);
+    const nextToken = Number(token);
+    stockSyncTokens[key] = Number.isFinite(nextToken) && nextToken > 0 ? nextToken : 0;
+}
+
+async function syncCurrentRegionStock(options = {}) {
+    const region = getSelectedRegionValue();
+    const { cityId } = getSelectedCityContext();
+
+    if (!region || !cityId) {
+        return;
+    }
+
+    const regionEntry = ensureCurrentRegionEntry();
+    if (!regionEntry) {
+        return;
+    }
+
+    const forceFull = Boolean(options?.forceFull);
+    const silent = Boolean(options?.silent);
+    const sinceToken = forceFull ? null : getCurrentRegionSyncToken(region, cityId);
+
+    if (!silent) {
+        setProfileStatus("Синхронизация с сервером...", "");
+    }
+
+    const payload = await fetchRegionStockSnapshot(cityId, sinceToken);
+    const rows = Array.isArray(payload?.items) ? payload.items : [];
+    rows.forEach((row) => {
+        const article = String(row?.article || "").trim();
+        if (!article) {
+            return;
+        }
+        regionEntry.items[article] = normalizeStockRecord(row, regionEntry.cityName);
+    });
+
+    if (Number.isFinite(Number(payload?.syncToken))) {
+        setCurrentRegionSyncToken(region, cityId, Number(payload.syncToken));
+    }
+
+    regionEntry.updatedAt = Date.now();
+    saveStockCache();
+    updateRegionUpdatedAtLabel();
+    renderCards();
+
+    if (!silent) {
+        setProfileStatus("Данные региона синхронизированы с сервером.", "ok");
+    }
 }
 
 function formatMoneyKzt(value) {
-    if (!Number.isFinite(Number(value))) {
-        return "-";
-    }
-
-    return `${Number(value).toLocaleString("ru-RU")} KZT`;
+    return formatMoneyKztModule(value);
 }
 
 function formatStockUpdatedAt(timestamp) {
@@ -871,16 +944,17 @@ function createStoreInfoHtml(stores) {
     return `<ul class=\"stock-info-list\">${items}</ul>`;
 }
 
-function showStockInfoModal(item) {
-    const stockRecord = getStockRecordByArticle(item?.article);
+function showStockInfoModal(item, stockRecord = null) {
+    const currentRecord = stockRecord || getStockRecordByArticle(item?.article);
     if (!dom.stockInfoModal || !dom.stockInfoBody) {
         return;
     }
 
-    const city = stockRecord?.cityTitle || "-";
-    const count = Number.isFinite(Number(stockRecord?.count)) ? Number(stockRecord.count) : 0;
-    const price = formatMoneyKzt(stockRecord?.price);
-    const updatedAt = formatStockUpdatedAt(stockRecord?.updatedAt);
+    const city = currentRecord?.cityTitle || "-";
+    const count = Number.isFinite(Number(currentRecord?.count)) ? Number(currentRecord.count) : 0;
+    const price = formatMoneyKzt(currentRecord?.price);
+    const updatedAt = formatStockUpdatedAt(currentRecord?.updatedAt);
+    const viewStats = currentRecord?._serverMeta?.viewStats;
 
     dom.stockInfoBody.innerHTML = `
         <p><strong>Товар:</strong> #${escapeHtml(item?.article || "-")}</p>
@@ -889,7 +963,8 @@ function showStockInfoModal(item) {
         <p><strong>Цена:</strong> ${escapeHtml(price)}</p>
         <p><strong>Остаток:</strong> ${escapeHtml(String(count))}</p>
         <p><strong>Обновлено:</strong> ${escapeHtml(updatedAt)}</p>
-        ${createStoreInfoHtml(stockRecord?.stores || [])}
+        ${viewStats ? `<p><strong>Просмотры за 7 дней:</strong> регион ${escapeHtml(String(viewStats.region7d || 0))}, Казахстан ${escapeHtml(String(viewStats.kz7d || 0))}</p>` : ""}
+        ${createStoreInfoHtml(currentRecord?.stores || [])}
     `;
 
     dom.stockInfoModal.classList.remove("hidden");
@@ -917,7 +992,7 @@ function openProfileModal() {
     if (cachedRegion?.updatedAt) {
         setProfileStatus("Остатки загружены.", "ok");
     } else {
-        setProfileStatus("Требуется загрузка остатков.", "error");
+        setProfileStatus("Данные будут загружены с сервера при первом обращении.", "");
     }
 
     dom.profileModal.classList.remove("hidden");
@@ -933,6 +1008,7 @@ function closeProfileModal() {
 
 async function initProfileCabinet() {
     stockCache = loadStockCache();
+    stockSyncTokens = {};
     loadProfileFilters();
     syncProfileFiltersUi();
 
@@ -953,6 +1029,7 @@ async function initProfileCabinet() {
 
         syncProfileCitySelect(savedSelection.cityId || "1");
         updateRegionUpdatedAtLabel();
+        await syncCurrentRegionStock({ forceFull: false, silent: true });
     } catch (error) {
         console.warn("Не удалось подготовить личный кабинет:", error);
         setProfileStatus(error.message || "Не удалось загрузить регионы.", "error");
@@ -989,62 +1066,15 @@ async function refreshStockForAllItems() {
     }
 
     saveProfileSelection(region, cityId);
-    const uniqueArticles = getAllArticlesFromSourceRows();
-    if (!uniqueArticles.length) {
-        setProfileStatus("Нет артикулов для загрузки остатков.", "error");
-        return;
-    }
-
-    const regionEntry = ensureCurrentRegionEntry();
-    if (!regionEntry) {
-        setProfileStatus("Не удалось инициализировать кеш выбранного региона.", "error");
-        return;
-    }
-
     dom.refreshStockBtn.disabled = true;
-    let okCount = 0;
-    let failCount = 0;
-    const CONCURRENCY = STOCK_REFRESH_CONCURRENCY;
-
-    setProfileStatus(`Загрузка: 0/${uniqueArticles.length}`, "");
-
-    const worker = async () => {
-        while (uniqueArticles.length) {
-            const article = uniqueArticles.shift();
-            if (!article) {
-                continue;
-            }
-
-            try {
-                const stockRecord = await fetchStockForArticle(cityId, cityName, article);
-                regionEntry.items[article] = stockRecord;
-                okCount += 1;
-            } catch (error) {
-                failCount += 1;
-                console.warn(`Ошибка загрузки остатков для ${article}:`, error);
-            }
-
-            const processed = okCount + failCount;
-            setProfileStatus(`Загрузка: ${processed}/${okCount + failCount + uniqueArticles.length}`, failCount ? "error" : "");
-        }
-    };
-
-    const workers = Array.from({ length: Math.min(CONCURRENCY, uniqueArticles.length) }, () => worker());
-    await Promise.all(workers);
-
-    regionEntry.updatedAt = Date.now();
-
-    saveStockCache();
-    updateRegionUpdatedAtLabel();
-    renderCards();
-
-    if (failCount > 0) {
-        setProfileStatus(`Готово: успешно ${okCount}, ошибок ${failCount}.`, "error");
-    } else {
-        setProfileStatus(`Готово: обновлено ${okCount} товаров.`, "ok");
+    try {
+        await syncCurrentRegionStock({ forceFull: true, silent: false });
+    } catch (error) {
+        console.warn("Ошибка синхронизации остатков:", error);
+        setProfileStatus(`Ошибка синхронизации: ${error.message || error}`, "error");
+    } finally {
+        dom.refreshStockBtn.disabled = false;
     }
-
-    dom.refreshStockBtn.disabled = false;
 }
 
 function normalizeHeader(value) {
@@ -1070,10 +1100,6 @@ function escapeHtml(value) {
         .replaceAll(">", "&gt;")
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#039;");
-}
-
-function normalizeArticleSearchInput(value) {
-    return String(value || "").replace(/\D+/g, "");
 }
 
 function findColumnIndex(headers, possibleNames) {
@@ -1232,63 +1258,6 @@ function rebuildItemsFromSourceRows() {
     renderCards();
 }
 
-function parseCsv(text) {
-    const rows = [];
-    let row = [];
-    let cell = "";
-    let insideQuote = false;
-
-    for (let i = 0; i < text.length; i += 1) {
-        const char = text[i];
-
-        if (insideQuote) {
-            if (char === '"') {
-                if (text[i + 1] === '"') {
-                    cell += '"';
-                    i += 1;
-                } else {
-                    insideQuote = false;
-                }
-            } else {
-                cell += char;
-            }
-            continue;
-        }
-
-        if (char === '"') {
-            insideQuote = true;
-            continue;
-        }
-
-        if (char === ',') {
-            row.push(cell);
-            cell = "";
-            continue;
-        }
-
-        if (char === '\r') {
-            continue;
-        }
-
-        if (char === '\n') {
-            row.push(cell);
-            rows.push(row);
-            row = [];
-            cell = "";
-            continue;
-        }
-
-        cell += char;
-    }
-
-    if (cell.length || row.length) {
-        row.push(cell);
-        rows.push(row);
-    }
-
-    return rows;
-}
-
 function parseRating(value) {
     const normalized = (value || "").toString().trim().replace(',', '.').replace('%', '');
     const parsed = Number(normalized);
@@ -1333,7 +1302,7 @@ function extractArticleFromText(value) {
         return "";
     }
 
-    const normalizedOnlyDigits = normalizeArticleSearchInput(raw);
+    const normalizedOnlyDigits = normalizeArticleSearchInputFromUtils(raw);
     if (normalizedOnlyDigits.length >= 5) {
         return normalizedOnlyDigits;
     }
@@ -1450,62 +1419,7 @@ function loadCsvCache() {
 }
 
 function buildItem(row, indices) {
-    const article = resolveArticleFromRow(row, indices);
-
-    // title: prefer columns C and D (brand + model). If empty, fall back to detected title column.
-    const c = String(row[ARTICLE_COLUMN_INDEX] || "").trim();
-    const d = String(row[3] || "").trim();
-    let title = [c, d].filter(Boolean).join(' ').trim();
-    if (!title && typeof indices.title === 'number' && indices.title >= 0) {
-        title = String(row[indices.title] || "").trim();
-    }
-
-    // remove article from title if it appears there (avoid duplicating article)
-    if (article) {
-        try {
-            const re = new RegExp("(?:#\\s*)?" + escapeRegExp(article), "gi");
-            title = title.replace(re, "").replace(/\s{2,}/g, " ").trim();
-        } catch (e) {
-            // ignore regexp errors
-        }
-    }
-
-    // category: prefer detected index, otherwise try column B (index 1)
-    let category = "";
-    if (typeof indices.category === 'number' && indices.category >= 0) {
-        category = String(row[indices.category] || "").trim();
-    }
-    if (!category && row.length > 1) {
-        category = String(row[1] || "").trim();
-    }
-    category = category || "Без категории";
-
-    const rawRating = row[indices.rating] || "";
-    const stars = parseRating(rawRating);
-    const percent = parsePercent(rawRating);
-
-    if (!article) {
-        return null;
-    }
-
-    // ensure percent numeric: try fallback to column E (index 4) if parse failed
-    let finalPercent = percent;
-    if (finalPercent == null && indices.rating === DEFAULT_MONTH_COLUMN_INDEX) {
-        finalPercent = 0;
-    }
-    if (finalPercent == null && row.length > 4) {
-        const tryE = parsePercent(row[4]);
-        if (tryE != null) finalPercent = tryE;
-    }
-
-    return {
-        article,
-        title: title || article,
-        category,
-        stars,
-        percent: finalPercent,
-        image: `${IMAGE_BASE_PATH}/${article}.webp`,
-    };
+    return buildItemModule(row, indices);
 }
 
 function renderCategoryList(filter = "") {
@@ -1648,10 +1562,43 @@ function createCard(item) {
     });
 
     if (stockInfoEl) {
-        stockInfoEl.addEventListener("click", (event) => {
+        stockInfoEl.addEventListener("click", async (event) => {
             event.preventDefault();
             event.stopPropagation();
-            showStockInfoModal(item);
+
+            const region = getSelectedRegionValue();
+            const { cityId, cityName } = getSelectedCityContext();
+            if (!region || !cityId) {
+                setProfileStatus("Выберите регион и магазин в личном кабинете.", "error");
+                return;
+            }
+
+            stockInfoEl.disabled = true;
+            const previousText = stockInfoEl.textContent;
+            stockInfoEl.textContent = "...";
+
+            try {
+                const savedUserName = loadSavedUserName();
+                const stockRecord = await fetchStockForArticle(cityId, cityName, item.article, {
+                    userId: savedUserName || "anonymous",
+                });
+                const regionEntry = ensureCurrentRegionEntry();
+                if (regionEntry) {
+                    regionEntry.items[item.article] = stockRecord;
+                    regionEntry.updatedAt = Date.now();
+                    saveStockCache();
+                }
+                updateRegionUpdatedAtLabel();
+                renderCards();
+                showStockInfoModal(item, stockRecord);
+            } catch (error) {
+                console.warn(`Ошибка загрузки карточки остатка для ${item.article}:`, error);
+                setProfileStatus(`Не удалось загрузить остатки по товару #${item.article}.`, "error");
+                showStockInfoModal(item);
+            } finally {
+                stockInfoEl.disabled = false;
+                stockInfoEl.textContent = previousText;
+            }
         });
     }
 
@@ -1828,7 +1775,7 @@ function resetAllFilters() {
 
 function bindEvents() {
     dom.search.addEventListener("input", (event) => {
-        const normalized = normalizeArticleSearchInput(event.target.value);
+        const normalized = normalizeArticleSearchInputFromUtils(event.target.value);
         if (event.target.value !== normalized) {
             event.target.value = normalized;
         }
@@ -1954,7 +1901,7 @@ function bindEvents() {
     }
 
     if (dom.profileRegion) {
-        dom.profileRegion.addEventListener("change", () => {
+        dom.profileRegion.addEventListener("change", async () => {
             syncProfileCitySelect();
             saveProfileSelection(getSelectedRegionValue(), dom.profileCity?.value || "");
             updateRegionUpdatedAtLabel();
@@ -1963,17 +1910,22 @@ function bindEvents() {
             if (cachedRegion?.updatedAt) {
                 setProfileStatus("Остатки загружены.", "ok");
             } else {
-                setProfileStatus("Требуется загрузка остатков.", "error");
+                setProfileStatus("Синхронизация с сервером...", "");
             }
 
             renderCards();
+            try {
+                await syncCurrentRegionStock({ forceFull: false, silent: false });
+            } catch (error) {
+                setProfileStatus(`Ошибка синхронизации: ${error.message || error}`, "error");
+            }
             // Обновим кнопку профиля (имя + город)
             try { renderCurrentUserName(loadSavedUserName()); } catch (e) { }
         });
     }
 
     if (dom.profileCity) {
-        dom.profileCity.addEventListener("change", () => {
+        dom.profileCity.addEventListener("change", async () => {
             saveProfileSelection(getSelectedRegionValue(), dom.profileCity?.value || "");
             updateRegionUpdatedAtLabel();
 
@@ -1981,10 +1933,15 @@ function bindEvents() {
             if (cachedRegion?.updatedAt) {
                 setProfileStatus("Остатки загружены.", "ok");
             } else {
-                setProfileStatus("Требуется загрузка остатков.", "error");
+                setProfileStatus("Синхронизация с сервером...", "");
             }
 
             renderCards();
+            try {
+                await syncCurrentRegionStock({ forceFull: false, silent: false });
+            } catch (error) {
+                setProfileStatus(`Ошибка синхронизации: ${error.message || error}`, "error");
+            }
             // Обновим кнопку профиля (имя + город)
             try { renderCurrentUserName(loadSavedUserName()); } catch (e) { }
         });
@@ -2367,7 +2324,7 @@ function extractArticleFromUrl(url) {
 
 function insertArticleToSearch(articleId) {
     const searchInput = document.getElementById("search");
-    const normalizedArticleId = normalizeArticleSearchInput(articleId);
+    const normalizedArticleId = normalizeArticleSearchInputFromUtils(articleId);
     searchInput.value = normalizedArticleId;
     // Триггер фильтрации
     searchQuery = normalizedArticleId;
@@ -2375,12 +2332,7 @@ function insertArticleToSearch(articleId) {
 }
 
 function buildSulpakCharacteristicsUrl(article) {
-    const normalizedArticle = String(article || "").trim().replace(/^#+/, "");
-    if (!normalizedArticle) {
-        return "";
-    }
-
-    return `https://www.sulpak.kz/g/${encodeURIComponent(normalizedArticle)}#characteristicsTab`;
+    return buildSulpakCharacteristicsUrlModule(article);
 }
 
 function openViewerWithImage(imageUrl, imageAlt) {
@@ -2459,7 +2411,7 @@ async function loadProducts() {
         return;
     }
 
-    const rows = parseCsv(raw).filter((row) => row.length > 0);
+    const rows = parseCsvFromUtils(raw).filter((row) => row.length > 0);
     if (!rows.length) {
         const message = "CSV пустой или не удалось разобрать данные.";
         loadError = message;

@@ -3,10 +3,6 @@ window.BN_CONFIG = {
   // This file is an example and can be committed.
   googleSheetUrl: "https://docs.google.com/spreadsheets/d/REPLACE_ME/export?format=csv&gid=0",
 
-  // Default password for client-side login gate.
-  // Keep the real value only in public/runtime-config.js (ignored by git).
-  defaultPassword: "REPLACE_ME",
-
   // Sulpak stock proxy base URL (public HTTPS endpoint on your VM).
   sulpakProxyBase: "https://proxy.bn.alexkyubi.com",
 
