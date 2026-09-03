@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bonus-navigator-v6';
+const CACHE_NAME = 'bonus-navigator-v7';
 const urlsToCache = [
   './',
   './index.html',

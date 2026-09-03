@@ -4,19 +4,25 @@ __pycache__/
 *.pyc
 *.pyo
 *.egg-info/
-proxy_server.py
+# Бэкенд не публикуется в git: он живёт только локально и на VM (см. deploy/DEPLOY_VM.md)
+server/
 requirements.txt
-server_config.json
-server_config.example.json
 *.sqlite3
 *.sqlite3-wal
 *.sqlite3-shm
 logs/
 backups/
 deploy/
+# Внутренняя документация — только для локальной навигации
+docs/
+# База и справочники: список регионов клиент теперь получает с сервера по токену
+data/
+# Приватная выгрузка каталога (проценты отчислений) — не публиковать
+public/products.csv
 
 # Development tools
 .dev/
+trash/
 
 # OS
 .DS_Store
@@ -31,7 +37,5 @@ Thumbs.db
 # Cache
 node_modules/
 npm-debug.log
-public/runtime-config.js
-
 # Dependencies (if using npm)
 package-lock.json

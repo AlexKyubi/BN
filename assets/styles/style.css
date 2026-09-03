@@ -223,6 +223,7 @@ body.auth-locked #viewer{
 
 .categories-toggle-side,
 .month-toggle-side,
+.sort-price-side,
 .reset-filters-side{
     width:52px;
     height:44px;
@@ -277,6 +278,7 @@ body.auth-locked #viewer{
 
 .categories-toggle-side:hover,
 .month-toggle-side:hover,
+.sort-price-side:hover,
 .reset-filters-side:hover{
     background:rgba(255,255,255,.12);
     border-color:rgba(255,255,255,.22);
@@ -286,12 +288,28 @@ body.auth-locked #viewer{
 
 .categories-toggle-side:active,
 .month-toggle-side:active,
+.sort-price-side:active,
 .reset-filters-side:active{
     transform:scale(.98);
 }
 
+.sort-price-side.active{
+    background:rgba(45,125,255,.18);
+    border-color:rgba(45,125,255,.55);
+    color:#8fbcff;
+}
+
+.sort-price-side svg{
+    transition:transform .18s ease;
+}
+
+.sort-price-side.sort-asc svg{
+    transform:scaleY(-1);
+}
+
 .categories-toggle-side:focus-visible,
 .month-toggle-side:focus-visible,
+.sort-price-side:focus-visible,
 .reset-filters-side:focus-visible,
 .current-user:focus-visible,
 .categoryButton:focus-visible,
@@ -329,6 +347,11 @@ body.auth-locked #viewer{
     flex-direction:column;
     align-items:center;
     gap:8px;
+    /* Без этого на низких экранах нижние кнопки sticky-панели недостижимы. */
+    max-height:calc(100vh - 130px);
+    max-height:calc(100dvh - 130px);
+    overflow-y:auto;
+    overscroll-behavior:contain;
 }
 
 .panel-title{
@@ -613,7 +636,9 @@ body.auth-locked #viewer{
         position:sticky;
         top:110px;
         width:96px;
-        max-height:none;
+        max-height:calc(100vh - 130px);
+        max-height:calc(100dvh - 130px);
+        overflow-y:auto;
         margin-bottom:0;
     }
 }
@@ -1023,7 +1048,10 @@ body.auth-locked #viewer{
         flex-direction:column;
         align-items:center;
         justify-content:flex-start;
-        max-height:none;
+        max-height:calc(100vh - 130px);
+        max-height:calc(100dvh - 130px);
+        overflow-y:auto;
+        overscroll-behavior:contain;
         gap:6px;
     }
 
@@ -1057,6 +1085,7 @@ body.auth-locked #viewer{
 
     .categories-toggle-side,
     .month-toggle-side,
+    .sort-price-side,
     .reset-filters-side{
         width:36px;
         height:32px;
@@ -1069,6 +1098,7 @@ body.auth-locked #viewer{
 
     .categories-toggle-side:hover,
     .month-toggle-side:hover,
+    .sort-price-side:hover,
     .reset-filters-side:hover{
         background:rgba(45,125,255,.2);
         border-color:rgba(45,125,255,.5);
@@ -1076,6 +1106,7 @@ body.auth-locked #viewer{
 
     .categories-toggle-side:active,
     .month-toggle-side:active,
+    .sort-price-side:active,
     .reset-filters-side:active{
         transform:scale(.95);
     }
@@ -1186,6 +1217,7 @@ body.auth-locked #viewer{
     .categoryButton:hover,
     .categories-toggle-side:hover,
     .month-toggle-side:hover,
+    .sort-price-side:hover,
     .reset-filters-side:hover,
     .scroll-top:hover,
     .search-bar .scan-qr-btn:hover{
@@ -1863,6 +1895,9 @@ select.auth-input optgroup{
     overflow:hidden;
     display:flex;
     flex-direction:column;
+    /* Иначе на низких экранах шапка и подвал окна уезжают за пределы экрана. */
+    max-height:calc(100vh - 32px);
+    max-height:calc(100dvh - 32px);
 }
 
 .modal-header{
@@ -1871,6 +1906,44 @@ select.auth-input optgroup{
     display:flex;
     justify-content:space-between;
     align-items:center;
+}
+
+.modal-header-left{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    min-width:0;
+}
+
+.icon-btn{
+    flex-shrink:0;
+    width:36px;
+    height:36px;
+    padding:0;
+    background:rgba(255,255,255,.08);
+    border:1px solid var(--border);
+    border-radius:8px;
+    color:var(--text);
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    transition:.25s ease;
+}
+
+.icon-btn svg{
+    width:18px;
+    height:18px;
+}
+
+.icon-btn:hover{
+    background:rgba(255,255,255,.12);
+}
+
+.icon-btn:disabled{
+    opacity:.5;
+    cursor:not-allowed;
+    pointer-events:none;
 }
 
 .modal-header h2{
@@ -1885,6 +1958,8 @@ select.auth-input optgroup{
     color:var(--text);
     font-size:0.95rem;
     line-height:1.6;
+    overflow-y:auto;
+    min-height:0;
 }
 
 .modal-body p{
@@ -1905,6 +1980,12 @@ select.auth-input optgroup{
 
 .modal-body li{
     margin:5px 0;
+}
+
+.modal-form{
+    display:flex;
+    flex-direction:column;
+    min-height:0;
 }
 
 .modal-footer{

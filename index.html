@@ -17,7 +17,7 @@
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%232d7dff' width='192' height='192'/><text x='96' y='130' font-size='100' font-weight='bold' fill='white' text-anchor='middle'>BN</text></svg>">
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%232d7dff' width='192' height='192'/><text x='96' y='130' font-size='100' font-weight='bold' fill='white' text-anchor='middle'>BN</text></svg>">
 
-    <link rel="stylesheet" href="assets/styles/style.css">
+    <link rel="stylesheet" href="assets/styles/style.css?v=2026090302">
 
 </head>
 
@@ -81,6 +81,15 @@
                     <line x1="3" y1="10" x2="21" y2="10"></line>
                 </svg>
                 <span id="monthBadge" class="month-badge" aria-hidden="true"></span>
+            </button>
+            <button id="sortPriceBtn" class="sort-price-side" type="button" aria-pressed="false" aria-label="Сортировка по цене" title="Сортировка по цене: выключена">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M7 4v16"></path>
+                    <polyline points="3 16 7 20 11 16"></polyline>
+                    <line x1="14" y1="6" x2="21" y2="6"></line>
+                    <line x1="14" y1="12" x2="19" y2="12"></line>
+                    <line x1="14" y1="18" x2="17" y2="18"></line>
+                </svg>
             </button>
             <button id="resetFiltersBtn" class="reset-filters-side" type="button" aria-label="Сбросить фильтры">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -198,11 +207,20 @@
     <div class="modal-backdrop" id="profileBackdrop"></div>
     <div class="modal-content profile-content">
         <div class="modal-header">
-            <h2 id="profileTitle">Личный кабинет</h2>
+            <div class="modal-header-left">
+                <button id="downloadStockReportBtn" type="button" class="icon-btn" aria-label="Загрузить остатки (.xlsx)" title="Загрузить остатки (.xlsx)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M12 3v12"></path>
+                        <path d="M7 10l5 5 5-5"></path>
+                        <path d="M5 20h14"></path>
+                    </svg>
+                </button>
+                <h2 id="profileTitle">Личный кабинет</h2>
+            </div>
             <button id="closeProfileModal" type="button" class="close-btn" aria-label="Закрыть">×</button>
         </div>
         <div class="modal-body profile-body">
-            <p class="profile-help">Выберите регион и магазин. По кнопке ниже будут загружены цены и остатки по всем товарам.</p>
+            <p class="profile-help">Выберите регион и магазин.</p>
 
             <label class="auth-label" for="profileRegion">Регион</label>
             <select id="profileRegion" class="auth-input"></select>
@@ -219,7 +237,7 @@
                 </label>
                 <label class="profile-check">
                     <input id="hideNoStock" type="checkbox">
-                    <span>Не показывать товары без точек с остатками</span>
+                    <span>Показывать только остатки</span>
                 </label>
             </div>
 
@@ -229,6 +247,27 @@
             <button id="refreshStockBtn" type="button" class="btn-primary">Синхронизировать с сервером</button>
             <button id="closeProfileFooterBtn" type="button" class="btn-secondary">Закрыть</button>
         </div>
+    </div>
+</div>
+
+<div id="reportPasswordModal" class="install-modal hidden" role="dialog" aria-modal="true" aria-labelledby="reportPasswordTitle">
+    <div class="modal-backdrop" id="reportPasswordBackdrop"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="reportPasswordTitle">Пароль отчёта</h2>
+            <button id="closeReportPasswordModal" type="button" class="close-btn" aria-label="Закрыть">×</button>
+        </div>
+        <form id="reportPasswordForm" class="modal-form">
+            <div class="modal-body">
+                <label class="auth-label" for="reportPasswordInput">Введите пароль для скачивания отчёта</label>
+                <input id="reportPasswordInput" type="password" class="auth-input" autocomplete="current-password" required>
+                <div id="reportPasswordError" class="auth-error" aria-live="polite"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="submit" class="btn-primary">Скачать</button>
+                <button id="cancelReportPasswordBtn" type="button" class="btn-secondary">Отмена</button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -290,11 +329,7 @@
 <!-- ====================================== -->
 
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
-<script>
-window.BN_CONFIG = window.BN_CONFIG || {};
-</script>
-<script src="public/runtime-config.example.js?v=2026080515"></script>
-<script type="module" src="assets/scripts/app.js?v=2026080513"></script>
+<script type="module" src="assets/scripts/app.js?v=2026090302"></script>
 
 <!-- Service Worker и PWA регистрация -->
 <script>
