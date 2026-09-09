@@ -75,14 +75,19 @@ export function syncMonthSelector() {
 export function openCategoryDrawer() {
     closeMonthDrawer();
     dom.categoryDrawer.classList.remove("hidden");
+    dom.categoryDrawer.removeAttribute("inert");
     dom.categoryDrawer.setAttribute("aria-hidden", "false");
     document.body.classList.add("drawer-open");
 }
 
 /** Закрывает панель категорий. */
 export function closeCategoryDrawer() {
-    dom.categoryDrawer.classList.add("hidden");
+    if (dom.categoryDrawer.contains(document.activeElement)) {
+        document.activeElement.blur();
+    }
     dom.categoryDrawer.setAttribute("aria-hidden", "true");
+    dom.categoryDrawer.setAttribute("inert", "");
+    dom.categoryDrawer.classList.add("hidden");
     if (dom.monthDrawer?.classList.contains("hidden")) {
         document.body.classList.remove("drawer-open");
     }
@@ -92,14 +97,19 @@ export function closeCategoryDrawer() {
 export function openMonthDrawer() {
     closeCategoryDrawer();
     dom.monthDrawer.classList.remove("hidden");
+    dom.monthDrawer.removeAttribute("inert");
     dom.monthDrawer.setAttribute("aria-hidden", "false");
     document.body.classList.add("drawer-open");
 }
 
 /** Закрывает панель месяцев. */
 export function closeMonthDrawer() {
-    dom.monthDrawer.classList.add("hidden");
+    if (dom.monthDrawer.contains(document.activeElement)) {
+        document.activeElement.blur();
+    }
     dom.monthDrawer.setAttribute("aria-hidden", "true");
+    dom.monthDrawer.setAttribute("inert", "");
+    dom.monthDrawer.classList.add("hidden");
     if (dom.categoryDrawer?.classList.contains("hidden")) {
         document.body.classList.remove("drawer-open");
     }

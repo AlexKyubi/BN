@@ -225,6 +225,14 @@ function updateSummary(total) {
         filters.push("Цена: по возрастанию");
     }
 
+    if (state.hideZeroPrice) {
+        filters.push("Без товаров с ценой 0");
+    }
+
+    if (state.hideNoStock) {
+        filters.push("Только товары с остатками");
+    }
+
     if (state.loadWarning) {
         filters.push(state.loadWarning);
     }
@@ -332,7 +340,9 @@ export function renderCards() {
 
         const description = document.createElement("div");
         description.className = "empty-text";
-        description.textContent = "Попробуйте изменить поиск или очистить фильтры. Если для товара нет фото, он может не отображаться.";
+        description.textContent = state.hideZeroPrice || state.hideNoStock
+            ? "Измените поиск, сбросьте фильтры или проверьте настройки каталога в личном кабинете."
+            : "Попробуйте изменить поиск или очистить фильтры.";
 
         emptyState.append(title, description);
         dom.grid.append(emptyState);

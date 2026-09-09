@@ -27,7 +27,7 @@ export function buildRegionCacheKey(regionName, cityId) {
 /** Возвращает запись кеша текущего выбранного региона/города (или null). */
 export function getCurrentRegionEntry() {
     const regionName = getSelectedRegionValue();
-    const cityId = String(dom.profileCity?.value || "").trim();
+    const { cityId } = getSelectedCityContext();
     if (!regionName || !cityId) {
         return null;
     }
@@ -44,8 +44,7 @@ export function getCurrentRegionEntry() {
 /** Возвращает (создавая при необходимости) запись кеша для текущего региона/города. */
 export function ensureCurrentRegionEntry() {
     const regionName = getSelectedRegionValue();
-    const cityId = String(dom.profileCity?.value || "").trim();
-    const cityName = getSelectedCityContext().cityName;
+    const { cityId, cityName } = getSelectedCityContext();
 
     if (!regionName || !cityId) {
         return null;

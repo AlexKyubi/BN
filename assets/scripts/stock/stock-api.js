@@ -245,5 +245,6 @@ export async function downloadRegionStockReport(cityId, { password = "", monthCo
     document.body.append(link);
     link.click();
     link.remove();
-    URL.revokeObjectURL(objectUrl);
+    // Safari/WebView могут начать чтение blob уже после обработки click.
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
 }

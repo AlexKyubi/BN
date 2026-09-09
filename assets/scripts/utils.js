@@ -231,18 +231,23 @@ export function parsePercent(value) {
         return null;
     }
 
+    const hasPercentSign = raw.includes("%");
     const normalized = raw.replace("%", "").replace(",", ".").trim();
     const n = Number(normalized);
     if (Number.isNaN(n)) {
         return null;
     }
 
-    if (n >= 0 && n <= 100) {
+    if (hasPercentSign && n >= 0 && n <= 100) {
         return Math.round(n);
     }
 
     if (n > 0 && n <= 1) {
         return Math.round(n * 100);
+    }
+
+    if (n >= 0 && n <= 100) {
+        return Math.round(n);
     }
 
     return null;

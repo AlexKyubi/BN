@@ -68,7 +68,7 @@ function scanQrCode() {
                 }
 
                 const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                const code = jsQR(imageData.data, imageData.width, imageData.height);
+                const code = window.jsQR(imageData.data, imageData.width, imageData.height);
 
                 if (code) {
                     const articleId = extractArticleFromUrl(code.data);
@@ -96,6 +96,14 @@ function scanQrCode() {
 export async function startQrScanner() {
     if (!isMobileDevice()) {
         alert("QR сканер доступен только на мобильных устройствах.");
+        return;
+    }
+
+    if (typeof window.jsQR !== "function") {
+        dom.qrScannerModal?.classList.remove("hidden");
+        if (dom.qrStatus) {
+            dom.qrStatus.textContent = "Модуль QR-сканера не загрузился. Проверьте интернет и обновите страницу.";
+        }
         return;
     }
 

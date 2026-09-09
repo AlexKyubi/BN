@@ -24,6 +24,11 @@ function activeSales(month = selectedMonth) { return sales.filter((sale) => sale
 function escapeText(value) { return String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 function setStatus(message, error = false) { const node = $("dashboardStatus"); if (node) { node.textContent = message; node.style.color = error ? "#ff8f8f" : "#8ff0b0"; } }
 
+function userInitials(name) {
+    const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+    return (parts.slice(0, 2).map((part) => part[0]).join("") || "П").toLocaleUpperCase("ru-RU");
+}
+
 function saleMarkup(sale) {
     const date = new Date(sale.soldAt);
     return `<article class="sale-row${sale.returned ? " returned" : ""}" data-sale-id="${escapeText(sale.id)}"><time class="sale-time">${date.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" })}<br>${date.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}</time><div class="sale-main"><strong>${escapeText(sale.title)}</strong><span>Артикул #${escapeText(sale.article)} · ${escapeText(sale.category)}</span></div><div class="sale-result"><strong>${sale.returned ? "Возвращена" : `+${formatMoney(sale.commission)}`}</strong><span>${formatMoney(sale.price)} × ${sale.quantity}</span></div></article>`;
@@ -63,6 +68,7 @@ function render() {
     const title = monthFormatter.format(monthDate(selectedMonth));
     $("periodTitle").textContent = title[0].toUpperCase() + title.slice(1);
     $("monthShortTitle").textContent = monthShortFormatter.format(monthDate(selectedMonth));
+    $("recentSalesPeriod").textContent = `За ${title.toLocaleLowerCase("ru-RU")}`;
     $("commissionTotal").textContent = formatMoney(commission);
     $("salesTotal").textContent = formatMoney(salesTotal);
     $("unitsTotal").textContent = money.format(units);
@@ -152,7 +158,26 @@ function bindEvents() {
     $("salesSearch").addEventListener("input", renderSalesList);
     for (const id of ["recentSales", "allSales"]) $(id).addEventListener("click", (event) => { const row = event.target.closest("[data-sale-id]"); if (row) openEditor(row.dataset.saleId); });
     $("closeEditSale").addEventListener("click", closeEditor); $("cancelEditSale").addEventListener("click", closeEditor); $("editSaleBackdrop").addEventListener("click", closeEditor);
-    $("editSaleForm").addEventListener("submit", async (event) => { event.preventDefault(); const sale = sales.find((item) => item.id === $("editSaleId").value); if (!sale) return; try { await saveSale({ ...sale, soldAt: new Date($("editSaleDate").value).toISOString(), price: Number($("editSalePrice").value), quantity: Number($("editSaleQuantity").value), returned: $("editSaleState").value === "returned" }); sales = await getAllSales(); closeEditor(); render(); } catch (error) { $("editSaleStatus").textContent = error.message; } });
+    $("editSaleForm").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const sale = sales.find((item) => item.id === $("editSaleId").value);
+        if (!sale) return;
+        const soldAt = new Date($("editSaleDate").value);
+        const price = Number($("editSalePrice").value);
+        const quantity = Number($("editSaleQuantity").value);
+        if (Number.isNaN(soldAt.getTime()) || !Number.isFinite(price) || price < 0 || !Number.isInteger(quantity) || quantity < 1) {
+            $("editSaleStatus").textContent = "Проверьте дату, цену и количество.";
+            return;
+        }
+        try {
+            await saveSale({ ...sale, soldAt: soldAt.toISOString(), price, quantity, returned: $("editSaleState").value === "returned" });
+            sales = await getAllSales();
+            closeEditor();
+            render();
+        } catch (error) {
+            $("editSaleStatus").textContent = error?.message || "Не удалось сохранить изменения.";
+        }
+    });
     $("profileRegion").addEventListener("change", () => { syncProfileCitySelect(); saveProfileSelection($("profileRegion").value, $("profileCity").value); });
     $("profileCity").addEventListener("change", () => saveProfileSelection($("profileRegion").value, $("profileCity").value));
     $("hideZeroPrice").addEventListener("change", () => { try { localStorage.setItem(HIDE_ZERO_PRICE_STORAGE_KEY, $("hideZeroPrice").checked ? "1" : "0"); } catch (error) { console.warn("Не удалось сохранить фильтр цены:", error); } });
@@ -166,7 +191,9 @@ function bindEvents() {
 
 async function init() {
     try { sales = await getAllSales(); } catch (error) { console.error(error); setStatus("Локальное хранилище продаж недоступно.", true); }
-    $("dashboardUser").textContent = loadSavedUserName() || "Пользователь";
+    const userName = loadSavedUserName() || "Пользователь";
+    $("dashboardUser").textContent = userName;
+    $("dashboardAvatar").textContent = userInitials(userName);
     try { $("hideZeroPrice").checked = localStorage.getItem(HIDE_ZERO_PRICE_STORAGE_KEY) === "1"; $("hideNoStock").checked = localStorage.getItem(HIDE_NO_STOCK_STORAGE_KEY) === "1"; } catch (error) { console.warn("Не удалось прочитать фильтры каталога:", error); }
     initReportPasswordModal(); bindEvents(); render(); initVersionManager(); void initRegions();
 }

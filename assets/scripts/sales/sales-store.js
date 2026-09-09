@@ -80,12 +80,14 @@ export function getAllSales() {
     });
 }
 
-export function saveSale(raw) {
+export function saveSale(raw, { preserveUpdatedAt = false } = {}) {
     const sale = normalizeSale(raw);
     if (!sale) {
         return Promise.reject(new Error("Проверьте данные продажи."));
     }
-    sale.updatedAt = new Date().toISOString();
+    if (!preserveUpdatedAt) {
+        sale.updatedAt = new Date().toISOString();
+    }
     return runTransaction("readwrite", (store, done) => {
         store.put(sale).onsuccess = () => done(sale);
     });
@@ -105,18 +107,29 @@ export async function importSalesBackup(text) {
     if (payload.sales.length > 50_000) {
         throw new Error("Резервная копия содержит слишком много записей.");
     }
-    const incoming = payload.sales.map(normalizeSale).filter(Boolean);
-    if (incoming.length !== payload.sales.length) {
+    const normalizedIncoming = payload.sales.map(normalizeSale).filter(Boolean);
+    if (normalizedIncoming.length !== payload.sales.length) {
         throw new Error("Резервная копия содержит повреждённые записи.");
     }
+
+    // Если файл содержит несколько версий одной продажи, оставляем самую новую.
+    const incomingById = new Map();
+    for (const sale of normalizedIncoming) {
+        const previous = incomingById.get(sale.id);
+        if (!previous || Date.parse(sale.updatedAt) > Date.parse(previous.updatedAt)) {
+            incomingById.set(sale.id, sale);
+        }
+    }
+    const incoming = [...incomingById.values()];
     const current = new Map((await getAllSales()).map((sale) => [sale.id, sale]));
     let imported = 0;
     for (const sale of incoming) {
         const existing = current.get(sale.id);
         if (!existing || Date.parse(sale.updatedAt) > Date.parse(existing.updatedAt)) {
-            await saveSale(sale);
+            await saveSale(sale, { preserveUpdatedAt: true });
+            current.set(sale.id, sale);
             imported += 1;
         }
     }
-    return { imported, total: incoming.length };
+    return { imported, total: normalizedIncoming.length };
 }

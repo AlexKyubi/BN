@@ -45,7 +45,9 @@ export function showStockInfoModal(item, stockRecord = null) {
     `;
 
     dom.stockInfoModal.classList.remove("hidden");
+    dom.stockInfoModal.removeAttribute("inert");
     dom.stockInfoModal.setAttribute("aria-hidden", "false");
+    requestAnimationFrame(() => dom.closeStockInfoModal?.focus());
 }
 
 /** Закрывает модальное окно с деталями остатков. */
@@ -54,6 +56,10 @@ export function closeStockInfoModal() {
         return;
     }
 
-    dom.stockInfoModal.classList.add("hidden");
+    if (dom.stockInfoModal.contains(document.activeElement)) {
+        document.activeElement.blur();
+    }
     dom.stockInfoModal.setAttribute("aria-hidden", "true");
+    dom.stockInfoModal.setAttribute("inert", "");
+    dom.stockInfoModal.classList.add("hidden");
 }
