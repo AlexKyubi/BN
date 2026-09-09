@@ -23,7 +23,7 @@ html{
 body{
     font-family:Inter, "Segoe UI", Roboto, Arial, sans-serif;
     background:
-        radial-gradient(circle at top left, rgba(45,125,255,.22), transparent 28%),
+        radial-gradient(circle at top left, hsl(var(--accent-hue) 100% 59% / .22), transparent 28%),
         linear-gradient(135deg, #05070d 0%, #0f1724 45%, #05070d 100%);
     color:#f4f7fb;
     min-height:100vh;
@@ -49,7 +49,7 @@ body::after{
 body::before{
     top:-8rem;
     left:-10rem;
-    background:#2d7dff;
+    background:var(--primary);
 }
 
 body::after{
@@ -72,9 +72,11 @@ body.auth-locked #viewer{
 
 :root{
 
-    --primary:#2d7dff;
-    --primary-dark:#1758c5;
-    --primary-soft:rgba(45,125,255,.18);
+    --accent-hue:216;
+    --primary:hsl(var(--accent-hue) 100% 59%);
+    --primary-dark:hsl(var(--accent-hue) 79% 43%);
+    --primary-light:hsl(var(--accent-hue) 100% 76%);
+    --primary-soft:hsl(var(--accent-hue) 100% 59% / .18);
 
     --background:#05070d;
     --surface:#111827;
@@ -107,7 +109,7 @@ body.auth-locked #viewer{
     position:absolute;
     inset:0 0 auto 0;
     height:200px;
-    background:linear-gradient(90deg, rgba(45,125,255,.14), transparent 70%);
+    background:linear-gradient(90deg, hsl(var(--accent-hue) 100% 59% / .14), transparent 70%);
     border-radius:0 0 30px 30px;
     filter:blur(12px);
     pointer-events:none;
@@ -294,9 +296,9 @@ body.auth-locked #viewer{
 }
 
 .sort-price-side.active{
-    background:rgba(45,125,255,.18);
-    border-color:rgba(45,125,255,.55);
-    color:#8fbcff;
+    background:var(--primary-soft);
+    border-color:hsl(var(--accent-hue) 100% 59% / .55);
+    color:var(--primary-light);
 }
 
 .sort-price-side svg{
@@ -322,7 +324,7 @@ body.auth-locked #viewer{
 .stop-btn:focus-visible,
 .btn-primary:focus-visible,
 .btn-secondary:focus-visible{
-    outline:2px solid rgba(45,125,255,.7);
+    outline:2px solid hsl(var(--accent-hue) 100% 59% / .7);
     outline-offset:2px;
 }
 
@@ -414,7 +416,7 @@ body.auth-locked #viewer{
     bottom:24px;
     z-index:600;
     border:0;
-    background:rgba(45,125,255,.95);
+    background:hsl(var(--accent-hue) 100% 59% / .95);
     color:#fff;
     padding:12px 18px;
     border-radius:999px;
@@ -425,7 +427,7 @@ body.auth-locked #viewer{
 
 .scroll-top:hover{
     transform:translateY(-2px);
-    background:linear-gradient(135deg, #2d7dff, #1e57d4);
+    background:linear-gradient(135deg, var(--primary), var(--primary-dark));
 }
 
 .category-sidebar-trigger{
@@ -558,14 +560,14 @@ body.auth-locked #viewer{
     background:linear-gradient(135deg, var(--primary), var(--primary-dark));
     color:#fff;
     border-color:transparent;
-    box-shadow:0 10px 24px rgba(45,125,255,.22);
+    box-shadow:0 10px 24px hsl(var(--accent-hue) 100% 59% / .22);
 }
 
 .month-item.active{
     background:linear-gradient(135deg, var(--primary), var(--primary-dark));
     color:#fff;
     border-color:transparent;
-    box-shadow:0 10px 24px rgba(45,125,255,.22);
+    box-shadow:0 10px 24px hsl(var(--accent-hue) 100% 59% / .22);
 }
 
 /* ---------- Панель "Остатки по товару" (выезжает справа) ---------- */
@@ -701,7 +703,7 @@ body.auth-locked #viewer{
     content:"";
     position:absolute;
     inset:0;
-    background:linear-gradient(90deg, rgba(45,125,255,.16), transparent 55%, rgba(255,255,255,.05));
+    background:linear-gradient(90deg, hsl(var(--accent-hue) 100% 59% / .16), transparent 55%, rgba(255,255,255,.05));
     pointer-events:none;
 }
 
@@ -766,7 +768,7 @@ body.auth-locked #viewer{
     margin-bottom:14px;
 
     color:#eaf3ff;
-    text-shadow:0 2px 8px rgba(45,125,255,.25);
+    text-shadow:0 2px 8px hsl(var(--accent-hue) 100% 59% / .25);
 
 }
 
@@ -824,7 +826,7 @@ body.auth-locked #viewer{
     align-items:center;
     justify-content:center;
     transition:.25s ease;
-    box-shadow:0 4px 12px rgba(45,125,255,.3);
+    box-shadow:0 4px 12px hsl(var(--accent-hue) 100% 59% / .3);
 }
 
 .search-bar .scan-qr-btn:hover{
@@ -844,7 +846,7 @@ body.auth-locked #viewer{
 
     background:rgba(255,255,255,.1);
     border-color:var(--primary);
-    box-shadow:0 0 0 3px rgba(45,125,255,.18);
+    box-shadow:0 0 0 3px hsl(var(--accent-hue) 100% 59% / .18);
 
 }
 
@@ -923,7 +925,7 @@ body.auth-locked #viewer{
     background:linear-gradient(135deg, var(--primary), var(--primary-dark));
     border-color:transparent;
     color:white;
-    box-shadow:0 10px 24px rgba(45,125,255,.28);
+    box-shadow:0 10px 24px hsl(var(--accent-hue) 100% 59% / .28);
 
 }
 
@@ -1072,8 +1074,8 @@ body.auth-locked #viewer{
         height:32px;
         font-size:1rem;
         border-radius:6px;
-        background:rgba(45,125,255,.1);
-        border:1px solid rgba(45,125,255,.3);
+        background:hsl(var(--accent-hue) 100% 59% / .1);
+        border:1px solid hsl(var(--accent-hue) 100% 59% / .3);
         transition:.2s ease;
         padding:0;
         display:flex;
@@ -1082,8 +1084,8 @@ body.auth-locked #viewer{
     }
 
     .star:hover{
-        background:rgba(45,125,255,.2);
-        border-color:rgba(45,125,255,.5);
+        background:hsl(var(--accent-hue) 100% 59% / .2);
+        border-color:hsl(var(--accent-hue) 100% 59% / .5);
     }
 
     .categories-toggle-side,
@@ -1092,8 +1094,8 @@ body.auth-locked #viewer{
     .reset-filters-side{
         width:36px;
         height:32px;
-        border:1px solid rgba(45,125,255,.3);
-        background:rgba(45,125,255,.1);
+        border:1px solid hsl(var(--accent-hue) 100% 59% / .3);
+        background:hsl(var(--accent-hue) 100% 59% / .1);
         border-radius:6px;
         margin-top:2px;
         padding:0;
@@ -1103,8 +1105,8 @@ body.auth-locked #viewer{
     .month-toggle-side:hover,
     .sort-price-side:hover,
     .reset-filters-side:hover{
-        background:rgba(45,125,255,.2);
-        border-color:rgba(45,125,255,.5);
+        background:hsl(var(--accent-hue) 100% 59% / .2);
+        border-color:hsl(var(--accent-hue) 100% 59% / .5);
     }
 
     .categories-toggle-side:active,
@@ -1137,8 +1139,8 @@ body.auth-locked #viewer{
         width:100%;
         padding:8px 4px;
         font-size:0.65rem;
-        border:1px solid rgba(45,125,255,.3);
-        background:rgba(45,125,255,.1);
+        border:1px solid hsl(var(--accent-hue) 100% 59% / .3);
+        background:hsl(var(--accent-hue) 100% 59% / .1);
         border-radius:6px;
         word-break:break-word;
         line-height:1.2;
@@ -1236,6 +1238,8 @@ body.auth-locked #viewer{
 
     position:relative;
     isolation:isolate;
+    content-visibility:auto;
+    contain-intrinsic-size:auto 430px;
     background:linear-gradient(180deg, rgba(18,26,42,.98), rgba(11,16,26,.98));
 
     border-radius:var(--radius);
@@ -1263,7 +1267,7 @@ body.auth-locked #viewer{
     position:absolute;
     inset:1px;
     border-radius:calc(var(--radius) - 1px);
-    background:linear-gradient(135deg, rgba(255,255,255,.08), transparent 40%, rgba(45,125,255,.08));
+    background:linear-gradient(135deg, rgba(255,255,255,.08), transparent 40%, hsl(var(--accent-hue) 100% 59% / .08));
     pointer-events:none;
     opacity:.9;
 }
@@ -1272,7 +1276,7 @@ body.auth-locked #viewer{
 
     transform:translateY(-6px) scale(1.01);
     box-shadow:0 20px 48px rgba(0,0,0,.4);
-    border-color:rgba(45,125,255,.35);
+    border-color:hsl(var(--accent-hue) 100% 59% / .35);
 
 }
 
@@ -1435,8 +1439,8 @@ body.auth-locked #viewer{
 .card-price{
     font-size:.88rem;
     font-weight:600;
-    color:#8ec5ff;
-    background:rgba(45,125,255,.14);
+    color:var(--primary-light);
+    background:hsl(var(--accent-hue) 100% 59% / .14);
     padding:3px 10px;
     border-radius:10px;
     white-space:nowrap;
@@ -1457,8 +1461,8 @@ body.auth-locked #viewer{
     width:38px;
     height:38px;
     border-radius:12px;
-    border:1px solid rgba(45,125,255,.46);
-    background:linear-gradient(135deg, rgba(45,125,255,.34), rgba(45,125,255,.2));
+    border:1px solid hsl(var(--accent-hue) 100% 59% / .46);
+    background:linear-gradient(135deg, hsl(var(--accent-hue) 100% 59% / .34), hsl(var(--accent-hue) 100% 59% / .2));
     color:#f2f8ff;
     font-weight:800;
     font-size:.95rem;
@@ -1469,8 +1473,8 @@ body.auth-locked #viewer{
 
 .card-stock-info:hover{
     transform:translateY(-1px);
-    background:linear-gradient(135deg, rgba(45,125,255,.48), rgba(45,125,255,.3));
-    border-color:rgba(120,178,255,.72);
+    background:linear-gradient(135deg, hsl(var(--accent-hue) 100% 59% / .48), hsl(var(--accent-hue) 100% 59% / .3));
+    border-color:hsl(var(--accent-hue) 100% 72% / .72);
     box-shadow:0 12px 24px rgba(5,18,40,.34);
 }
 
@@ -1770,7 +1774,7 @@ select.auth-input optgroup{
 
 .auth-input:focus{
     border-color:var(--primary);
-    box-shadow:0 0 0 3px rgba(45,125,255,.2);
+    box-shadow:0 0 0 3px hsl(var(--accent-hue) 100% 59% / .2);
 }
 
 .auth-error{
@@ -1832,12 +1836,14 @@ select.auth-input optgroup{
     width:28px;
     height:28px;
     padding:0;
-    border:1px solid rgba(45,125,255,.55);
+    border:1px solid hsl(var(--accent-hue) 100% 59% / .55);
     border-radius:9px;
-    background:rgba(45,125,255,.18);
-    color:#b8d4ff;
+    background:var(--primary-soft);
+    color:var(--primary-light);
     cursor:pointer;
     flex:0 0 auto;
+    /* Оставляем кнопку сразу после артикула по X, но поднимаем её к кнопке остатков. */
+    transform:translateY(-48px);
 }
 
 .card-sale-btn:hover{background:var(--primary);color:#fff}
@@ -2074,7 +2080,7 @@ select.auth-input optgroup{
 
 .btn-primary:hover{
     transform:translateY(-2px);
-    box-shadow:0 8px 16px rgba(45,125,255,.3);
+    box-shadow:0 8px 16px hsl(var(--accent-hue) 100% 59% / .3);
 }
 
 .btn-secondary{
@@ -2197,6 +2203,10 @@ select.auth-input optgroup{
         height:28px;
         font-size:.78rem;
         border-radius:9px;
+    }
+
+    .card-sale-btn{
+        transform:translateY(-45px);
     }
 
 }
@@ -2326,14 +2336,14 @@ select.auth-input optgroup{
 
 ::-webkit-scrollbar-thumb{
 
-    background:linear-gradient(180deg, #3d5f86, #213448);
+    background:linear-gradient(180deg, hsl(var(--accent-hue) 38% 38%), hsl(var(--accent-hue) 37% 21%));
     border-radius:20px;
 
 }
 
 ::-webkit-scrollbar-thumb:hover{
 
-    background:linear-gradient(180deg, #4f78a7, #2e4d68);
+    background:linear-gradient(180deg, hsl(var(--accent-hue) 36% 48%), hsl(var(--accent-hue) 38% 29%));
 
 }
 
@@ -2351,7 +2361,7 @@ select.auth-input optgroup{
 
 ::selection{
 
-    background:#1565c0;
+    background:var(--primary-dark);
 
     color:white;
 
@@ -2415,7 +2425,7 @@ select.auth-input optgroup{
 
     border-radius:999px;
 
-    box-shadow:0 10px 24px rgba(45,125,255,.25);
+    box-shadow:0 10px 24px hsl(var(--accent-hue) 100% 59% / .25);
 
     font-size:.85rem;
 

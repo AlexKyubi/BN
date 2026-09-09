@@ -18,6 +18,7 @@ import {
  * Синхронизирует остатки текущего региона с сервером (полностью или дельтой) и обновляет UI.
  * options.forceFull — игнорировать sync-токен и запросить всё заново.
  * options.silent — не показывать промежуточные статусы в личном кабинете.
+ * options.render — перерисовать карточки после синхронизации (по умолчанию true).
  */
 export async function syncCurrentRegionStock(options = {}) {
     const region = getSelectedRegionValue();
@@ -57,7 +58,9 @@ export async function syncCurrentRegionStock(options = {}) {
     regionEntry.updatedAt = Date.now();
     saveStockCache();
     updateRegionUpdatedAtLabel();
-    renderCards();
+    if (options?.render !== false) {
+        renderCards();
+    }
 
     if (!silent) {
         setProfileStatus("Данные региона синхронизированы с сервером.", "ok");

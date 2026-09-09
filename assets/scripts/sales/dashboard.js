@@ -1,28 +1,54 @@
 import { loadSavedUserName } from "../auth/device-auth.js";
 import { state } from "../state.js";
-import { ACTIVE_MONTH_INDEX_STORAGE_KEY, ACTIVE_MONTH_LABEL_STORAGE_KEY, HIDE_NO_STOCK_STORAGE_KEY, HIDE_ZERO_PRICE_STORAGE_KEY } from "../config.js";
+import { ACTIVE_MONTH_INDEX_STORAGE_KEY, ACTIVE_MONTH_LABEL_STORAGE_KEY, DASHBOARD_FAST_RETURN_KEY, DASHBOARD_RETURN_MARKER_KEY, HIDE_NO_STOCK_STORAGE_KEY, HIDE_ZERO_PRICE_STORAGE_KEY } from "../config.js";
 import { buildRegionCityModel, fillProfileRegionSelect, getSelectedCityContext, loadProfileSelection, loadRegionRows, saveProfileSelection, syncProfileCitySelect } from "../regions/regions.js";
-import { downloadRegionStockReport } from "../stock/stock-api.js";
+import { downloadRegionStockReport, fetchRegionStockSnapshot } from "../stock/stock-api.js";
 import { askReportPassword, initReportPasswordModal } from "../ui/password-prompt.js";
 import { createSalesWorkbook } from "./xlsx-report.js";
-import { downloadBlob, shareOrDownload } from "./file-share.js";
+import { shareOrDownload } from "./file-share.js";
 import { exportSalesBackup, getAllSales, importSalesBackup, saveSale } from "./sales-store.js";
 import { initVersionManager } from "../update/version-manager.js";
+import { initThemeManager } from "../theme/theme-manager.js";
 
 const $ = (id) => document.getElementById(id);
 const money = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 2 });
 const monthFormatter = new Intl.DateTimeFormat("ru-RU", { month: "long", year: "numeric" });
 const monthShortFormatter = new Intl.DateTimeFormat("ru-RU", { month: "long" });
 let sales = [];
+let regionSyncSequence = 0;
+let catalogRegionChanged = false;
 const today = new Date();
-let selectedMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+const CURRENT_MONTH = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+const DASHBOARD_MONTH_STORAGE_KEY = "bn_dashboard_month_v1";
+const DASHBOARD_PAGE_STORAGE_KEY = "bn_dashboard_page_v1";
+const SALES_ARTICLE_FILTER_KEY = "bn_sales_article_filter_v1";
+const SALES_DATE_FILTER_KEY = "bn_sales_date_filter_v1";
+
+function readLocalValue(key) {
+    try { return localStorage.getItem(key) || ""; } catch { return ""; }
+}
+
+function writeLocalValue(key, value) {
+    try { localStorage.setItem(key, String(value || "")); } catch (error) { console.warn(`Не удалось сохранить ${key}:`, error); }
+}
+
+function validMonth(value) { return /^\d{4}-(0[1-9]|1[0-2])$/.test(String(value || "")); }
+let selectedMonth = validMonth(readLocalValue(DASHBOARD_MONTH_STORAGE_KEY)) ? readLocalValue(DASHBOARD_MONTH_STORAGE_KEY) : CURRENT_MONTH;
 
 function formatMoney(value) { return `${money.format(Number(value) || 0)} ₸`; }
 function monthDate(key) { const [year, month] = key.split("-").map(Number); return new Date(year, month - 1, 1); }
-function shiftMonth(delta) { const date = monthDate(selectedMonth); date.setMonth(date.getMonth() + delta); selectedMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`; render(); }
+function shiftMonth(delta) { const date = monthDate(selectedMonth); date.setMonth(date.getMonth() + delta); selectedMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`; writeLocalValue(DASHBOARD_MONTH_STORAGE_KEY, selectedMonth); render(); }
 function activeSales(month = selectedMonth) { return sales.filter((sale) => sale.month === month && !sale.returned); }
 function escapeText(value) { return String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 function setStatus(message, error = false) { const node = $("dashboardStatus"); if (node) { node.textContent = message; node.style.color = error ? "#ff8f8f" : "#8ff0b0"; } }
+
+function setProfileSyncStatus(message, tone = "") {
+    const node = $("profileSyncStatus");
+    if (!node) return;
+    node.textContent = message || "";
+    node.classList.remove("syncing", "ok", "error");
+    if (tone) node.classList.add(tone);
+}
 
 function userInitials(name) {
     const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
@@ -52,8 +78,13 @@ function renderCategories(monthSales) {
 }
 
 function renderSalesList() {
-    const query = ($("salesSearch")?.value || "").trim().toLowerCase();
-    const visible = sales.filter((sale) => !query || sale.article.toLowerCase().includes(query) || sale.title.toLowerCase().includes(query) || new Date(sale.soldAt).toLocaleDateString("ru-RU").includes(query)).sort((a, b) => Date.parse(b.soldAt) - Date.parse(a.soldAt));
+    const articleQuery = ($("salesArticleSearch")?.value || "").replace(/\D+/g, "");
+    const dateQuery = $("salesDateSearch")?.value || "";
+    const visible = sales.filter((sale) => {
+        const date = new Date(sale.soldAt);
+        const localDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+        return (!articleQuery || sale.article.includes(articleQuery)) && (!dateQuery || localDate === dateQuery);
+    }).sort((a, b) => Date.parse(b.soldAt) - Date.parse(a.soldAt));
     $("allSales").innerHTML = visible.length ? visible.map(saleMarkup).join("") : `<p class="panel-subtitle" style="padding:18px 0">Продажи не найдены.</p>`;
 }
 
@@ -83,12 +114,41 @@ function render() {
 }
 
 function showPage(name) {
-    document.querySelector("body > .dashboard-shell")?.classList.toggle("hidden", name === "sales");
-    $("salesPage").classList.toggle("hidden", name !== "sales");
-    $("navOverview").classList.toggle("active", name !== "sales");
-    $("navSales").classList.toggle("active", name === "sales");
-    if (name === "sales") renderSalesList();
+    const pageName = name === "sales" ? "sales" : "overview";
+    writeLocalValue(DASHBOARD_PAGE_STORAGE_KEY, pageName);
+    document.querySelector("body > .dashboard-shell")?.classList.toggle("hidden", pageName === "sales");
+    $("salesPage").classList.toggle("hidden", pageName !== "sales");
+    $("navOverview").classList.toggle("active", pageName !== "sales");
+    $("navSales").classList.toggle("active", pageName === "sales");
+    if (pageName === "sales") renderSalesList();
     window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function returnToCatalog() {
+    let shouldGoBack = false;
+    try {
+        shouldGoBack = sessionStorage.getItem(DASHBOARD_RETURN_MARKER_KEY) === "1" && window.history.length > 1;
+        sessionStorage.removeItem(DASHBOARD_RETURN_MARKER_KEY);
+        if (catalogRegionChanged) sessionStorage.removeItem(DASHBOARD_FAST_RETURN_KEY);
+    } catch (error) {
+        console.warn("Не удалось прочитать маршрут возврата:", error);
+    }
+    // После смены региона нужен новый экземпляр каталога: BFCache сохранил бы DOM
+    // и остатки предыдущего региона. Обычная загрузка получит снимок новой SQLite-записи.
+    if (catalogRegionChanged) {
+        window.location.assign("index.html");
+        return;
+    }
+    if (shouldGoBack) {
+        try {
+            sessionStorage.setItem(DASHBOARD_FAST_RETURN_KEY, "1");
+        } catch (error) {
+            console.warn("Не удалось включить быстрый возврат:", error);
+        }
+        window.history.back();
+    } else {
+        window.location.assign("index.html");
+    }
 }
 
 function openEditor(id) {
@@ -121,11 +181,33 @@ async function initRegions() {
     }
 }
 
-async function buildReport(share) {
+/** Запрашивает снапшот выбранного региона; актуальность отдельных записей решает сервер. */
+async function syncSelectedRegionStock() {
+    const { cityId } = getSelectedCityContext();
+    if (!cityId) {
+        setProfileSyncStatus("Выберите магазин.", "error");
+        return;
+    }
+
+    const sequence = ++regionSyncSequence;
+    setProfileSyncStatus("Получаем данные региона с сервера…", "syncing");
+    try {
+        const payload = await fetchRegionStockSnapshot(cityId, null);
+        if (sequence !== regionSyncSequence) return;
+        const count = Array.isArray(payload?.items) ? payload.items.length : 0;
+        setProfileSyncStatus(`Данные региона синхронизированы. Получено записей: ${count}.`, "ok");
+    } catch (error) {
+        if (sequence !== regionSyncSequence) return;
+        console.warn("Не удалось синхронизировать выбранный регион:", error);
+        setProfileSyncStatus(error?.message || "Не удалось синхронизировать данные.", "error");
+    }
+}
+
+async function buildReport() {
     try {
         const blob = createSalesWorkbook(sales, loadSavedUserName());
         const filename = `bonus-navigator-sales-${new Date().toISOString().slice(0, 10)}.xlsx`;
-        if (share) await shareOrDownload(blob, filename, "Отчёт по продажам"); else downloadBlob(blob, filename);
+        await shareOrDownload(blob, filename, "Отчёт по продажам");
         setStatus("Отчёт сформирован.");
     } catch (error) { console.error(error); setStatus("Не удалось сформировать отчёт.", true); }
 }
@@ -150,12 +232,25 @@ async function downloadStockReport() {
 function bindEvents() {
     $("previousMonth").addEventListener("click", () => shiftMonth(-1));
     $("nextMonth").addEventListener("click", () => shiftMonth(1));
-    $("navCatalog").addEventListener("click", () => window.location.assign("index.html"));
+    document.querySelector(".dashboard-back")?.addEventListener("click", (event) => {
+        event.preventDefault();
+        returnToCatalog();
+    });
+    $("navCatalog").addEventListener("click", returnToCatalog);
     $("navOverview").addEventListener("click", () => showPage("overview"));
     $("navSales").addEventListener("click", () => showPage("sales"));
     $("openSalesList").addEventListener("click", () => showPage("sales"));
     $("closeSalesList").addEventListener("click", () => showPage("overview"));
-    $("salesSearch").addEventListener("input", renderSalesList);
+    $("salesArticleSearch").addEventListener("input", (event) => {
+        const normalized = event.target.value.replace(/\D+/g, "");
+        if (event.target.value !== normalized) event.target.value = normalized;
+        writeLocalValue(SALES_ARTICLE_FILTER_KEY, normalized);
+        renderSalesList();
+    });
+    $("salesDateSearch").addEventListener("input", (event) => {
+        writeLocalValue(SALES_DATE_FILTER_KEY, event.target.value);
+        renderSalesList();
+    });
     for (const id of ["recentSales", "allSales"]) $(id).addEventListener("click", (event) => { const row = event.target.closest("[data-sale-id]"); if (row) openEditor(row.dataset.saleId); });
     $("closeEditSale").addEventListener("click", closeEditor); $("cancelEditSale").addEventListener("click", closeEditor); $("editSaleBackdrop").addEventListener("click", closeEditor);
     $("editSaleForm").addEventListener("submit", async (event) => {
@@ -178,12 +273,21 @@ function bindEvents() {
             $("editSaleStatus").textContent = error?.message || "Не удалось сохранить изменения.";
         }
     });
-    $("profileRegion").addEventListener("change", () => { syncProfileCitySelect(); saveProfileSelection($("profileRegion").value, $("profileCity").value); });
-    $("profileCity").addEventListener("change", () => saveProfileSelection($("profileRegion").value, $("profileCity").value));
+    $("profileRegion").addEventListener("change", () => {
+        catalogRegionChanged = true;
+        syncProfileCitySelect();
+        saveProfileSelection($("profileRegion").value, $("profileCity").value);
+        void syncSelectedRegionStock();
+    });
+    $("profileCity").addEventListener("change", () => {
+        catalogRegionChanged = true;
+        saveProfileSelection($("profileRegion").value, $("profileCity").value);
+        void syncSelectedRegionStock();
+    });
     $("hideZeroPrice").addEventListener("change", () => { try { localStorage.setItem(HIDE_ZERO_PRICE_STORAGE_KEY, $("hideZeroPrice").checked ? "1" : "0"); } catch (error) { console.warn("Не удалось сохранить фильтр цены:", error); } });
     $("hideNoStock").addEventListener("change", () => { try { localStorage.setItem(HIDE_NO_STOCK_STORAGE_KEY, $("hideNoStock").checked ? "1" : "0"); } catch (error) { console.warn("Не удалось сохранить фильтр остатков:", error); } });
     $("downloadStockReportBtn").addEventListener("click", () => void downloadStockReport());
-    $("shareReport").addEventListener("click", () => void buildReport(true)); $("downloadReport").addEventListener("click", () => void buildReport(false));
+    $("shareReport").addEventListener("click", () => void buildReport());
     $("exportData").addEventListener("click", async () => { try { const text = await exportSalesBackup(); await shareOrDownload(new Blob([text], { type: "application/json" }), `bonus-navigator-backup-${new Date().toISOString().slice(0, 10)}.json`, "Резервная копия продаж"); setStatus("Экспорт данных готов."); } catch (error) { setStatus(error.message, true); } });
     $("importData").addEventListener("click", () => $("importFile").click());
     $("importFile").addEventListener("change", async () => { const file = $("importFile").files?.[0]; if (!file) return; try { if (file.size > 10 * 1024 * 1024) throw new Error("Файл резервной копии больше 10 МБ."); const result = await importSalesBackup(await file.text()); sales = await getAllSales(); render(); setStatus(`Импортировано записей: ${result.imported}.`); } catch (error) { setStatus(error.message, true); } finally { $("importFile").value = ""; } });
@@ -194,8 +298,13 @@ async function init() {
     const userName = loadSavedUserName() || "Пользователь";
     $("dashboardUser").textContent = userName;
     $("dashboardAvatar").textContent = userInitials(userName);
+    $("salesArticleSearch").value = readLocalValue(SALES_ARTICLE_FILTER_KEY).replace(/\D+/g, "");
+    const savedSalesDate = readLocalValue(SALES_DATE_FILTER_KEY);
+    $("salesDateSearch").value = /^\d{4}-\d{2}-\d{2}$/.test(savedSalesDate) ? savedSalesDate : "";
     try { $("hideZeroPrice").checked = localStorage.getItem(HIDE_ZERO_PRICE_STORAGE_KEY) === "1"; $("hideNoStock").checked = localStorage.getItem(HIDE_NO_STOCK_STORAGE_KEY) === "1"; } catch (error) { console.warn("Не удалось прочитать фильтры каталога:", error); }
-    initReportPasswordModal(); bindEvents(); render(); initVersionManager(); void initRegions();
+    initThemeManager(); initReportPasswordModal(); bindEvents(); render();
+    showPage(readLocalValue(DASHBOARD_PAGE_STORAGE_KEY));
+    initVersionManager(); void initRegions();
 }
 
 void init();

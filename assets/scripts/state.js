@@ -25,6 +25,4 @@ export const state = {
     hideNoStock: false,
     // Сортировка по цене: "none" | "desc" | "asc".
     priceSort: "none",
-    catalogRefreshTimerId: null,
-    catalogRefreshInFlight: false,
 };

@@ -110,7 +110,7 @@ function loadCsvCache() {
 }
 
 /** Пересобирает items из уже загруженных строк CSV с учётом активной колонки месяца/рейтинга. */
-export function rebuildItemsFromSourceRows() {
+export function rebuildItemsFromSourceRows({ render = true } = {}) {
     if (!state.sourceRows.length || !state.sourceBaseIndices) {
         return;
     }
@@ -142,50 +142,16 @@ export function rebuildItemsFromSourceRows() {
 
     const categoryNames = [...new Set(state.items.map((item) => item.category))]
         .sort((a, b) => a.localeCompare(b, "ru"));
+    if (state.activeCategory !== "all" && !categoryNames.includes(state.activeCategory)) {
+        state.activeCategory = "all";
+    }
     createCategoryList(categoryNames);
     updateStarsButtons();
-    renderCards();
+    if (render) renderCards();
 }
 
-/** Загружает CSV каталога (удалённый/кеш/локальный), разбирает заголовки и строит список товаров. */
-export async function loadProducts() {
-    dom.resultCount.textContent = "Загрузка товаров...";
-    dom.activeFilters.textContent = "";
-
-    state.loadError = null;
-    state.loadWarning = null;
-    let raw = null;
-    const cached = loadCsvCache();
-
-    const sheetUrl = getEffectiveSheetUrl();
-
-    if (sheetUrl) {
-        try {
-            raw = await fetchCsvText(sheetUrl);
-            saveCsvCache(raw);
-        } catch (fetchError) {
-            console.warn("Ошибка при загрузке удалённого CSV:", fetchError);
-            raw = cached;
-
-            if (!raw) {
-                raw = await fetchLocalCsv();
-                if (raw) {
-                    saveCsvCache(raw);
-                }
-            }
-        }
-    } else {
-        console.warn("Ссылка Google Sheets не задана, использую кеш/локальный fallback.");
-        raw = cached;
-
-        if (!raw) {
-            raw = await fetchLocalCsv();
-            if (raw) {
-                saveCsvCache(raw);
-            }
-        }
-    }
-
+/** Разбирает уже полученный CSV и применяет его к состоянию каталога. */
+function applyCatalogText(raw, { render = true } = {}) {
     if (!raw) {
         const message = "Не удалось загрузить CSV. Проверьте ссылку Google Sheets, подключение к интернету или добавьте fallback-файл public/products.csv.";
         state.loadError = message;
@@ -193,7 +159,7 @@ export async function loadProducts() {
         dom.resultCount.textContent = "Ошибка загрузки товаров";
         dom.activeFilters.textContent = message;
         state.items = [];
-        return;
+        return false;
     }
 
     const rows = parseCsv(raw).filter((row) => row.length > 0);
@@ -204,7 +170,7 @@ export async function loadProducts() {
         dom.resultCount.textContent = "Ошибка загрузки товаров";
         dom.activeFilters.textContent = message;
         state.items = [];
-        return;
+        return false;
     }
 
     const headers = rows[0] || [];
@@ -222,7 +188,7 @@ export async function loadProducts() {
         dom.resultCount.textContent = "Ошибка загрузки товаров";
         dom.activeFilters.textContent = message;
         state.items = [];
-        return;
+        return false;
     }
 
     if (baseIndices.title === -1) {
@@ -252,5 +218,57 @@ export async function loadProducts() {
     state.pendingQuickReturnMonthColumn = null;
     syncMonthSelector();
 
-    rebuildItemsFromSourceRows();
+    rebuildItemsFromSourceRows({ render });
+    return Boolean(state.items.length);
+}
+
+/**
+ * Загружает CSV каталога. Валидный локальный кеш применяется сразу, пока сеть
+ * проверяет свежую версию; поэтому первая карточка не ждёт Google Sheets.
+ */
+export async function loadProducts({ render = true } = {}) {
+    state.loadError = null;
+    state.loadWarning = null;
+    const cached = loadCsvCache();
+    let cacheApplied = false;
+
+    if (cached) {
+        cacheApplied = applyCatalogText(cached, { render });
+    } else {
+        dom.resultCount.textContent = "Загрузка товаров...";
+        dom.activeFilters.textContent = "";
+    }
+
+    let raw = null;
+    const sheetUrl = getEffectiveSheetUrl();
+
+    if (sheetUrl) {
+        try {
+            raw = await fetchCsvText(sheetUrl);
+            saveCsvCache(raw);
+        } catch (fetchError) {
+            console.warn("Ошибка при загрузке удалённого CSV:", fetchError);
+            if (cacheApplied) return true;
+        }
+    } else {
+        console.warn("Ссылка Google Sheets не задана, использую кеш/локальный fallback.");
+    }
+
+    if (!raw && !cacheApplied) {
+        raw = await fetchLocalCsv();
+        if (raw) saveCsvCache(raw);
+    }
+
+    if (!raw) {
+        return cacheApplied || applyCatalogText(null, { render });
+    }
+
+    // При совпадении сеть лишь подтверждает кеш: строки не разбираем повторно.
+    if (cacheApplied && raw === cached) {
+        // Финальная отрисовка подхватывает остатки, которые могли прийти параллельно.
+        if (render) renderCards();
+        return true;
+    }
+
+    return applyCatalogText(raw, { render });
 }

@@ -12,10 +12,16 @@ export const CATEGORY_ALL = "all";
 export const CSV_CACHE_KEY = "bn_csv_cache";
 /** Срок жизни кеша CSV — 6 часов. */
 export const CSV_CACHE_TTL = 1000 * 60 * 60 * 6;
-/** Ключ sessionStorage для состояния "быстрого возврата" (при переходе на страницу товара и обратно). */
+/** Ключ sessionStorage для состояния быстрого возврата из кабинета или со страницы товара. */
 export const QUICK_RETURN_STATE_KEY = "bn_quick_return_state_v1";
 /** Срок жизни состояния быстрого возврата — 30 минут. */
 export const QUICK_RETURN_TTL = 1000 * 60 * 30;
+/** Постоянное состояние фильтров и оформления каталога между запусками браузера. */
+export const CATALOG_UI_STATE_STORAGE_KEY = "bn_catalog_ui_state_v1";
+export const THEME_HUE_STORAGE_KEY = "bn_theme_hue_v1";
+export const DEFAULT_THEME_HUE = 216;
+export const DASHBOARD_RETURN_MARKER_KEY = "bn_dashboard_from_catalog_v1";
+export const DASHBOARD_FAST_RETURN_KEY = "bn_dashboard_fast_return_v1";
 /** Локальный резервный CSV на случай недоступности Google Sheets. */
 export const LOCAL_CSV_PATH = "public/products.csv";
 /** Ключи localStorage для статуса и данных авторизации на устройстве. */
@@ -34,7 +40,7 @@ export const ACTIVE_MONTH_INDEX_STORAGE_KEY = "bn_active_month_index_v1";
 export const ACTIVE_MONTH_LABEL_STORAGE_KEY = "bn_active_month_label_v1";
 
 /** Версии и настройки безопасной проверки обновлений. */
-export const FRONTEND_VERSION = "1.2.1";
+export const FRONTEND_VERSION = "1.3.0";
 export const HEALTH_PATH = "/health";
 export const VERSION_CHECK_TIMEOUT_MS = 10_000;
 export const ACKNOWLEDGED_BACKEND_VERSION_KEY = "bn_acknowledged_backend_version_v1";
@@ -61,9 +67,6 @@ export const STOCK_CONFIG = {
 export const STOCK_FETCH_TIMEOUT_MS = 600000;
 export const REGION_SYNC_TIMEOUT_MS = 0;
 export const AUTH_VALIDATE_TIMEOUT_MS = 15000;
-/** Интервал фонового обновления каталога из CSV (не реже раза в минуту). */
-export const CATALOG_REFRESH_INTERVAL_MS = 900_000;
-
 /** Индекс колонки CSV с артикулом (столбец C) и колонки месяца по умолчанию (столбец E). */
 export const ARTICLE_COLUMN_INDEX = 2;
 export const DEFAULT_MONTH_COLUMN_INDEX = 4;

@@ -31,7 +31,7 @@ export function loadProfileFilters() {
 }
 
 /** Готовит личный кабинет при старте приложения: справочник регионов, сохранённый выбор, синхронизация остатков. */
-export async function initProfileCabinet() {
+export async function initProfileCabinet({ syncStock = true } = {}) {
     state.stockCache = loadStockCache();
     state.stockSyncTokens = {};
     loadProfileFilters();
@@ -58,7 +58,9 @@ export async function initProfileCabinet() {
             saveProfileSelection(defaultRegion, cityId);
         }
         updateRegionUpdatedAtLabel();
-        await syncCurrentRegionStock({ forceFull: false, silent: true });
+        if (syncStock) {
+            await syncCurrentRegionStock({ forceFull: false, silent: true });
+        }
     } catch (error) {
         console.warn("Не удалось подготовить личный кабинет:", error);
         setProfileStatus(error.message || "Не удалось загрузить регионы.", "error");

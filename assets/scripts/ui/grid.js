@@ -5,7 +5,7 @@ import { buildSulpakCharacteristicsUrl } from "../catalog/catalog-items.js";
 import { getSelectedCityContext, getSelectedRegionValue } from "../regions/regions.js";
 import { setProfileStatus } from "../profile/profile-status.js";
 import { fetchStockForArticle, formatMoneyKzt } from "../stock/stock-api.js";
-import { ensureCurrentRegionEntry, getStockRecordByArticle, saveStockCache, updateRegionUpdatedAtLabel } from "../stock/stock-cache.js";
+import { ensureCurrentRegionEntry, getCurrentRegionEntry, saveStockCache, updateRegionUpdatedAtLabel } from "../stock/stock-cache.js";
 import { showStockInfoModal } from "../stock/stock-info-modal.js";
 import { saveQuickReturnState } from "../quick-return.js";
 import { openViewerWithImage } from "./viewer.js";
@@ -15,6 +15,17 @@ import { openSaleDialog } from "../sales/sale-dialog.js";
 /**
  * Сетка карточек товаров: рендер, фильтрация, категории и звёзды рейтинга.
  */
+
+const PHOTO_PLACEHOLDER = `data:image/svg+xml;utf8,${encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800">'
+    + '<rect width="100%" height="100%" fill="#0f1724"/>'
+    + '<g fill="#cbd5e1" opacity="0.9">'
+    + '<rect x="80" y="180" width="640" height="420" rx="20"/>'
+    + '<circle cx="200" cy="400" r="70"/>'
+    + '</g>'
+    + '<text x="50%" y="90%" fill="#8b9bb0" font-size="36" font-family="Inter, Arial, sans-serif" text-anchor="middle">Нет фото</text>'
+    + '</svg>'
+)}`;
 
 /** Перерисовывает список категорий в выдвижной панели с учётом фильтра по подстроке. */
 function renderCategoryList(filter = "") {
@@ -52,7 +63,7 @@ function updateCategoryActiveState() {
 }
 
 /** Создаёт DOM-карточку товара из шаблона #cardTemplate. */
-function createCard(item) {
+function createCard(item, stockRecord = null) {
     const clone = dom.template.content.cloneNode(true);
     const card = clone.querySelector(".card");
     const image = clone.querySelector(".photo");
@@ -63,7 +74,6 @@ function createCard(item) {
     const saleButton = clone.querySelector(".card-sale-btn");
     const modelEl = clone.querySelector(".card-model");
     const starsEl = clone.querySelector(".card-stars");
-    const stockRecord = getStockRecordByArticle(item.article);
 
     // Считаем количество отображаемых звёзд: приоритет явному проценту (колонка E), иначе — полю stars.
     let display = 0;
@@ -86,26 +96,13 @@ function createCard(item) {
     const hollowStars = "☆".repeat(5 - display);
     starsEl.innerHTML = `<span class="stars-text">${filledStars}</span><span class="stars-hollow">${hollowStars}</span>`;
 
-    // SVG-заглушка для товаров без фото или с ошибкой загрузки изображения.
-    const placeholderSvg = encodeURIComponent(
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800">'
-        + '<rect width="100%" height="100%" fill="#0f1724"/>'
-        + '<g fill="#cbd5e1" opacity="0.9">'
-        + '<rect x="80" y="180" width="640" height="420" rx="20"/>'
-        + '<circle cx="200" cy="400" r="70"/>'
-        + '</g>'
-        + '<text x="50%" y="90%" fill="#8b9bb0" font-size="36" font-family="Inter, Arial, sans-serif" text-anchor="middle">Нет фото</text>'
-        + '</svg>'
-    );
-    const placeholder = `data:image/svg+xml;utf8,${placeholderSvg}`;
-
     const photoUrl = String(stockRecord?.photoUrl || "").trim();
-    image.src = photoUrl || item.image || placeholder;
+    image.src = photoUrl || item.image || PHOTO_PLACEHOLDER;
     image.alt = item.title;
 
     image.addEventListener("error", () => {
-        if (image.src !== placeholder) {
-            image.src = placeholder;
+        if (image.src !== PHOTO_PLACEHOLDER) {
+            image.src = PHOTO_PLACEHOLDER;
         }
         image.classList.add("no-photo");
     });
@@ -178,7 +175,7 @@ function createCard(item) {
             } catch (error) {
                 console.warn(`Ошибка загрузки карточки остатка для ${item.article}:`, error);
                 setProfileStatus(`Не удалось загрузить остатки по товару #${item.article}.`, "error");
-                showStockInfoModal(item);
+                showStockInfoModal(item, stockRecord);
             } finally {
                 stockInfoEl.disabled = false;
                 stockInfoEl.textContent = previousText;
@@ -242,9 +239,9 @@ function updateSummary(total) {
 }
 
 /** Применяет все активные фильтры (категория, звёзды, поиск, скрытие нулевой цены/отсутствия остатка). */
-function filterItems() {
+function filterItems(stockItems) {
     return state.items.filter((item) => {
-        const stockRecord = getStockRecordByArticle(item.article);
+        const stockRecord = stockItems[item.article] || null;
 
         if (state.hideZeroPrice && stockRecord && Number(stockRecord.price || 0) <= 0) {
             return false;
@@ -288,15 +285,15 @@ function filterItems() {
 }
 
 /** Сортирует список товаров по цене из карточки остатков; товары без цены всегда в конце. */
-function sortItemsByPrice(items) {
+function sortItemsByPrice(items, stockItems) {
     if (state.priceSort !== "asc" && state.priceSort !== "desc") {
         return items;
     }
 
     const direction = state.priceSort === "asc" ? 1 : -1;
     return items.slice().sort((left, right) => {
-        const leftPrice = Number(getStockRecordByArticle(left.article)?.price || 0);
-        const rightPrice = Number(getStockRecordByArticle(right.article)?.price || 0);
+        const leftPrice = Number(stockItems[left.article]?.price || 0);
+        const rightPrice = Number(stockItems[right.article]?.price || 0);
 
         if (leftPrice <= 0 || rightPrice <= 0) {
             return (leftPrice > 0 ? -1 : 0) - (rightPrice > 0 ? -1 : 0);
@@ -326,7 +323,10 @@ export function updateSortPriceButton() {
 
 /** Полностью перерисовывает сетку карточек согласно текущим фильтрам. */
 export function renderCards() {
-    const matched = sortItemsByPrice(filterItems());
+    // Один раз берём словарь остатков для всего прохода. Раньше каждый товар заново
+    // читал регион/город из localStorage, что заметно замедляло большие каталоги.
+    const stockItems = getCurrentRegionEntry()?.items || {};
+    const matched = sortItemsByPrice(filterItems(stockItems), stockItems);
 
     dom.grid.innerHTML = "";
 
@@ -351,9 +351,9 @@ export function renderCards() {
         return;
     }
 
-    matched.forEach((item) => {
-        dom.grid.append(createCard(item));
-    });
+    const fragment = document.createDocumentFragment();
+    matched.forEach((item) => fragment.append(createCard(item, stockItems[item.article] || null)));
+    dom.grid.append(fragment);
 
     updateSummary(matched.length);
 }

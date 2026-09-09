@@ -62,7 +62,10 @@ export function normalizeStockRecord(payload, fallbackCityName = "") {
 
     const countFromField = Number(payload?.count);
     const count = Number.isFinite(countFromField) ? countFromField : stores.length;
-    const priceValue = Number(payload?.price);
+    const rawPrice = payload?.price;
+    const priceValue = rawPrice === null || rawPrice === undefined || rawPrice === ""
+        ? Number.NaN
+        : Number(rawPrice);
     const price = Number.isFinite(priceValue) ? priceValue : null;
 
     const updatedAtValue = Number(payload?.updatedAt);
@@ -170,7 +173,7 @@ export async function fetchRegionStockSnapshot(cityId, sinceToken = null) {
 
 /** Форматирует цену в тенге для отображения (или "-", если значение некорректно). */
 export function formatMoneyKzt(value) {
-    if (!Number.isFinite(Number(value))) {
+    if (value === null || value === undefined || value === "" || !Number.isFinite(Number(value))) {
         return "-";
     }
 

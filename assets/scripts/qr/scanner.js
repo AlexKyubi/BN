@@ -2,6 +2,7 @@ import { dom } from "../dom.js";
 import { state } from "../state.js";
 import { normalizeArticleSearchInput } from "../utils.js";
 import { renderCards } from "../ui/grid.js";
+import { saveCatalogUiState } from "../quick-return.js";
 
 /**
  * Сканер QR-кодов (на мобильных устройствах) для быстрого поиска товара по артикулу.
@@ -29,6 +30,7 @@ function insertArticleToSearch(articleId) {
     dom.search.value = normalizedArticleId;
     state.searchQuery = normalizedArticleId;
     renderCards();
+    saveCatalogUiState();
 }
 
 /** Читает кадры видео с камеры и ищет в них QR-код (пока сканер активен). */

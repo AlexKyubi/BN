@@ -19,7 +19,7 @@
 
 import { dom } from "./dom.js";
 import { state } from "./state.js";
-import { CATALOG_REFRESH_INTERVAL_MS, DEFAULT_MONTH_COLUMN_INDEX } from "./config.js";
+import { DASHBOARD_FAST_RETURN_KEY, DASHBOARD_RETURN_MARKER_KEY, DEFAULT_MONTH_COLUMN_INDEX } from "./config.js";
 import { normalizeArticleSearchInput, normalizeGoogleSheetCsvUrl } from "./utils.js";
 import {
     clearAuthError,
@@ -39,8 +39,7 @@ import { loadProducts, rebuildItemsFromSourceRows } from "./catalog/csv-source.j
 import { closeStockInfoModal } from "./stock/stock-info-modal.js";
 import { syncCurrentRegionStock } from "./stock/stock-sync.js";
 import { initProfileCabinet } from "./profile/profile-cabinet.js";
-import { setProfileStatus } from "./profile/profile-status.js";
-import { hydrateQuickReturnState, saveQuickReturnState } from "./quick-return.js";
+import { hasUsableQuickReturnState, hydrateCatalogUiState, hydrateQuickReturnState, saveCatalogUiState, saveQuickReturnState } from "./quick-return.js";
 import { closeCategoryDrawer, closeMonthDrawer, openCategoryDrawer, openMonthDrawer, syncMonthSelector } from "./ui/drawers.js";
 import { createCategoryList, renderCards, updateCategoryButtons, updateSortPriceButton, updateStarsButtons } from "./ui/grid.js";
 import { hideViewer } from "./ui/viewer.js";
@@ -49,6 +48,7 @@ import { initReportPasswordModal } from "./ui/password-prompt.js";
 import { initQrScanner, stopQrScanner } from "./qr/scanner.js";
 import { initVersionManager } from "./update/version-manager.js";
 import { initSaleDialog } from "./sales/sale-dialog.js";
+import { initThemeManager } from "./theme/theme-manager.js";
 
 /** Позволяет тестам читать текущий список товаров из консоли/автотестов. */
 window.__BN_TEST__ = {
@@ -57,63 +57,59 @@ window.__BN_TEST__ = {
     },
 };
 
-/** Запускает приложение один раз: события, личный кабинет, каталог, фоновое обновление. */
-async function startApp() {
+/** Запускает приложение один раз и собирает каталог с минимальным количеством перерисовок. */
+async function startApp({ fastReturn = false } = {}) {
     if (state.appStarted) {
         return;
     }
 
     state.appStarted = true;
     bindEvents();
+    hydrateCatalogUiState();
     updateSortPriceButton();
-    await initProfileCabinet();
-    if (hydrateQuickReturnState()) {
+
+    const restored = hydrateQuickReturnState();
+    if (restored) {
         createCategoryList(state.categories);
         updateCategoryButtons();
         updateStarsButtons();
+        updateSortPriceButton();
+        syncMonthSelector();
         renderCards();
     }
-    await loadProducts();
-    renderCards();
-    scheduleCatalogRefresh();
-    try {
-        await syncCurrentRegionStock({ forceFull: false, silent: true });
-    } catch (error) {
-        console.warn("Не удалось выполнить стартовую синхронизацию региона:", error);
-    }
-}
 
-/** Планирует периодическое фоновое обновление каталога из CSV. */
-function scheduleCatalogRefresh() {
-    if (state.catalogRefreshTimerId) {
-        clearInterval(state.catalogRefreshTimerId);
-    }
-
-    state.catalogRefreshTimerId = setInterval(() => {
-        void refreshCatalogInBackground();
-    }, CATALOG_REFRESH_INTERVAL_MS);
-}
-
-/** Тихо перезагружает каталог из CSV, если вкладка активна и предыдущее обновление завершилось. */
-async function refreshCatalogInBackground() {
-    if (state.catalogRefreshInFlight) {
+    // Возврат из кабинета восстанавливает тот же DOM-снимок без повторной загрузки CSV
+    // и остатков. Обычный запуск/перезагрузка по-прежнему получает свежие данные.
+    if (fastReturn && restored) {
+        saveCatalogUiState();
         return;
     }
 
-    // Если вкладка неактивна, пропускаем итерацию, чтобы не тратить сеть и CPU.
-    if (document.visibilityState !== "visible") {
-        return;
-    }
+    // Загрузка справочника и каталога идёт параллельно.
+    const profilePromise = initProfileCabinet({ syncStock: false });
 
-    state.catalogRefreshInFlight = true;
-    try {
-        await loadProducts();
+    const productsPromise = loadProducts({ render: !restored });
+    let stockReady = false;
+    const stockPromise = profilePromise.then(async () => {
+        try {
+            await syncCurrentRegionStock({ forceFull: false, silent: true, render: false });
+        } catch (error) {
+            console.warn("Не удалось выполнить стартовую синхронизацию региона:", error);
+        } finally {
+            stockReady = true;
+        }
+    });
+
+    await productsPromise;
+    const stockWasReadyForFirstRender = stockReady;
+    await stockPromise;
+    if (restored || !stockWasReadyForFirstRender) {
+        updateCategoryButtons();
+        updateStarsButtons();
+        updateSortPriceButton();
         renderCards();
-    } catch (error) {
-        console.warn("Фоновое обновление каталога не удалось:", error);
-    } finally {
-        state.catalogRefreshInFlight = false;
     }
+    saveCatalogUiState();
 }
 
 /** Сбрасывает все активные фильтры каталога к значениям по умолчанию. */
@@ -135,6 +131,7 @@ function resetAllFilters() {
     updateSortPriceButton();
     closeCategoryDrawer();
     closeMonthDrawer();
+    saveCatalogUiState();
 }
 
 /** Подключает обработчик отправки формы авторизации. */
@@ -196,6 +193,21 @@ async function initAuthorization() {
     }
 
     if (isAuthorizedOnDevice()) {
+        let fastReturn = false;
+        try {
+            fastReturn = sessionStorage.getItem(DASHBOARD_FAST_RETURN_KEY) === "1"
+                && hasUsableQuickReturnState();
+            sessionStorage.removeItem(DASHBOARD_FAST_RETURN_KEY);
+        } catch (error) {
+            console.warn("Не удалось проверить быстрый возврат:", error);
+        }
+
+        if (fastReturn) {
+            hideAuthModal();
+            startApp({ fastReturn: true });
+            return;
+        }
+
         const authorization = await validateSheetUrlWithServer(savedSheetUrl);
         if (!authorization.ok) {
             clearAuthorizationOnDevice();
@@ -231,6 +243,7 @@ function bindEvents() {
         }
         state.searchQuery = normalized;
         renderCards();
+        saveCatalogUiState();
     });
 
     if (dom.monthToggle) {
@@ -245,6 +258,7 @@ function bindEvents() {
             state.priceSort = state.priceSort === "desc" ? "asc" : "desc";
             updateSortPriceButton();
             renderCards();
+            saveCatalogUiState();
         });
     }
     if (dom.closeMonthDrawer) {
@@ -269,6 +283,7 @@ function bindEvents() {
             rebuildItemsFromSourceRows();
             syncMonthSelector();
             closeMonthDrawer();
+            saveCatalogUiState();
         });
     }
 
@@ -286,6 +301,7 @@ function bindEvents() {
         updateCategoryButtons();
         renderCards();
         closeCategoryDrawer();
+        saveCatalogUiState();
     });
 
     dom.stars.addEventListener("click", (event) => {
@@ -305,6 +321,7 @@ function bindEvents() {
 
         updateStarsButtons();
         renderCards();
+        saveCatalogUiState();
     });
 
     dom.mainContent.addEventListener("click", () => {
@@ -345,7 +362,15 @@ function bindEvents() {
     });
 
     if (dom.currentUser) {
-        const openDashboard = () => window.location.assign("dashboard.html");
+        const openDashboard = () => {
+            saveQuickReturnState();
+            try {
+                sessionStorage.setItem(DASHBOARD_RETURN_MARKER_KEY, "1");
+            } catch (error) {
+                console.warn("Не удалось сохранить маршрут возврата:", error);
+            }
+            window.location.assign("dashboard.html");
+        };
         dom.currentUser.addEventListener("click", openDashboard);
         dom.currentUser.addEventListener("keydown", (event) => {
             if (event.key === "Enter" || event.key === " ") {
@@ -364,6 +389,17 @@ function bindEvents() {
     }
 
     window.addEventListener("pagehide", saveQuickReturnState);
+    window.addEventListener("pageshow", (event) => {
+        // При настоящем BFCache-возврате модуль не запускается заново, поэтому
+        // одноразовый флаг нужно погасить здесь, чтобы обычное обновление уже
+        // выполнило штатную проверку версии каталога и авторизации.
+        if (!event.persisted) return;
+        try {
+            sessionStorage.removeItem(DASHBOARD_FAST_RETURN_KEY);
+        } catch (error) {
+            console.warn("Не удалось завершить быстрый возврат:", error);
+        }
+    });
 
     initQrScanner();
     initReportPasswordModal();
@@ -371,5 +407,6 @@ function bindEvents() {
 }
 
 initPwaInstall();
+initThemeManager();
 initVersionManager();
 initAuthorization();
