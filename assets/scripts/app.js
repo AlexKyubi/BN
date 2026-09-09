@@ -36,11 +36,9 @@ import {
 } from "./auth/device-auth.js";
 import { validateSheetUrlWithServer } from "./auth/sheet-auth.js";
 import { loadProducts, rebuildItemsFromSourceRows } from "./catalog/csv-source.js";
-import { getSelectedRegionValue, saveProfileSelection, syncProfileCitySelect } from "./regions/regions.js";
 import { closeStockInfoModal } from "./stock/stock-info-modal.js";
-import { downloadCurrentRegionStockReport, refreshStockForAllItems, syncCurrentRegionStock } from "./stock/stock-sync.js";
-import { getCurrentRegionEntry, updateRegionUpdatedAtLabel } from "./stock/stock-cache.js";
-import { closeProfileModal, initProfileCabinet, openProfileModal, saveProfileFilters } from "./profile/profile-cabinet.js";
+import { syncCurrentRegionStock } from "./stock/stock-sync.js";
+import { initProfileCabinet } from "./profile/profile-cabinet.js";
 import { setProfileStatus } from "./profile/profile-status.js";
 import { hydrateQuickReturnState, saveQuickReturnState } from "./quick-return.js";
 import { closeCategoryDrawer, closeMonthDrawer, openCategoryDrawer, openMonthDrawer, syncMonthSelector } from "./ui/drawers.js";
@@ -49,6 +47,8 @@ import { hideViewer } from "./ui/viewer.js";
 import { initPwaInstall } from "./pwa/install.js";
 import { initReportPasswordModal } from "./ui/password-prompt.js";
 import { initQrScanner, stopQrScanner } from "./qr/scanner.js";
+import { initVersionManager } from "./update/version-manager.js";
+import { initSaleDialog } from "./sales/sale-dialog.js";
 
 /** Позволяет тестам читать текущий список товаров из консоли/автотестов. */
 window.__BN_TEST__ = {
@@ -340,108 +340,19 @@ function bindEvents() {
             closeMonthDrawer();
             hideViewer();
             stopQrScanner();
-            closeProfileModal();
             closeStockInfoModal();
         }
     });
 
     if (dom.currentUser) {
-        dom.currentUser.addEventListener("click", openProfileModal);
+        const openDashboard = () => window.location.assign("dashboard.html");
+        dom.currentUser.addEventListener("click", openDashboard);
         dom.currentUser.addEventListener("keydown", (event) => {
             if (event.key === "Enter" || event.key === " ") {
                 event.preventDefault();
-                openProfileModal();
+                openDashboard();
             }
         });
-    }
-
-    if (dom.profileRegion) {
-        dom.profileRegion.addEventListener("change", async () => {
-            syncProfileCitySelect();
-            saveProfileSelection(getSelectedRegionValue(), dom.profileCity?.value || "");
-            updateRegionUpdatedAtLabel();
-
-            const cachedRegion = getCurrentRegionEntry();
-            if (cachedRegion?.updatedAt) {
-                setProfileStatus("Остатки загружены.", "ok");
-            } else {
-                setProfileStatus("Синхронизация с сервером...", "");
-            }
-
-            renderCards();
-            try {
-                await syncCurrentRegionStock({ forceFull: false, silent: false });
-            } catch (error) {
-                setProfileStatus(`Ошибка синхронизации: ${error.message || error}`, "error");
-            }
-            try {
-                renderCurrentUserName(loadSavedUserName());
-            } catch (e) {
-                // ignore
-            }
-        });
-    }
-
-    if (dom.profileCity) {
-        dom.profileCity.addEventListener("change", async () => {
-            saveProfileSelection(getSelectedRegionValue(), dom.profileCity?.value || "");
-            updateRegionUpdatedAtLabel();
-
-            const cachedRegion = getCurrentRegionEntry();
-            if (cachedRegion?.updatedAt) {
-                setProfileStatus("Остатки загружены.", "ok");
-            } else {
-                setProfileStatus("Синхронизация с сервером...", "");
-            }
-
-            renderCards();
-            try {
-                await syncCurrentRegionStock({ forceFull: false, silent: false });
-            } catch (error) {
-                setProfileStatus(`Ошибка синхронизации: ${error.message || error}`, "error");
-            }
-            try {
-                renderCurrentUserName(loadSavedUserName());
-            } catch (e) {
-                // ignore
-            }
-        });
-    }
-
-    if (dom.hideZeroPrice) {
-        dom.hideZeroPrice.addEventListener("change", () => {
-            state.hideZeroPrice = Boolean(dom.hideZeroPrice.checked);
-            saveProfileFilters();
-            renderCards();
-        });
-    }
-
-    if (dom.hideNoStock) {
-        dom.hideNoStock.addEventListener("change", () => {
-            state.hideNoStock = Boolean(dom.hideNoStock.checked);
-            saveProfileFilters();
-            renderCards();
-        });
-    }
-
-    if (dom.refreshStockBtn) {
-        dom.refreshStockBtn.addEventListener("click", refreshStockForAllItems);
-    }
-
-    if (dom.downloadStockReportBtn) {
-        dom.downloadStockReportBtn.addEventListener("click", downloadCurrentRegionStockReport);
-    }
-
-    if (dom.closeProfileModal) {
-        dom.closeProfileModal.addEventListener("click", closeProfileModal);
-    }
-
-    if (dom.closeProfileFooterBtn) {
-        dom.closeProfileFooterBtn.addEventListener("click", closeProfileModal);
-    }
-
-    if (dom.profileBackdrop) {
-        dom.profileBackdrop.addEventListener("click", closeProfileModal);
     }
 
     if (dom.closeStockInfoModal) {
@@ -456,7 +367,9 @@ function bindEvents() {
 
     initQrScanner();
     initReportPasswordModal();
+    initSaleDialog();
 }
 
 initPwaInstall();
+initVersionManager();
 initAuthorization();

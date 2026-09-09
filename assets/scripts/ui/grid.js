@@ -10,6 +10,7 @@ import { showStockInfoModal } from "../stock/stock-info-modal.js";
 import { saveQuickReturnState } from "../quick-return.js";
 import { openViewerWithImage } from "./viewer.js";
 import { closeCategoryDrawer } from "./drawers.js";
+import { openSaleDialog } from "../sales/sale-dialog.js";
 
 /**
  * Сетка карточек товаров: рендер, фильтрация, категории и звёзды рейтинга.
@@ -59,6 +60,7 @@ function createCard(item) {
     const priceEl = clone.querySelector(".card-price");
     const articleEl = clone.querySelector(".card-article");
     const stockInfoEl = clone.querySelector(".card-stock-info");
+    const saleButton = clone.querySelector(".card-sale-btn");
     const modelEl = clone.querySelector(".card-model");
     const starsEl = clone.querySelector(".card-stars");
     const stockRecord = getStockRecordByArticle(item.article);
@@ -183,6 +185,12 @@ function createCard(item) {
             }
         });
     }
+
+    saleButton?.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        openSaleDialog(item, stockRecord?.price);
+    });
 
     card.addEventListener("click", () => {
         const viewerPhotoUrl = String(stockRecord?.photoUrl || "").trim();

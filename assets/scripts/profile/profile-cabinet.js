@@ -7,9 +7,10 @@ import {
     fillProfileRegionSelect,
     loadProfileSelection,
     loadRegionRows,
+    saveProfileSelection,
     syncProfileCitySelect,
 } from "../regions/regions.js";
-import { getCurrentRegionEntry, loadStockCache, updateRegionUpdatedAtLabel } from "../stock/stock-cache.js";
+import { loadStockCache, updateRegionUpdatedAtLabel } from "../stock/stock-cache.js";
 import { syncCurrentRegionStock } from "../stock/stock-sync.js";
 import { setProfileStatus } from "./profile-status.js";
 
@@ -29,60 +30,11 @@ export function loadProfileFilters() {
     }
 }
 
-/** Сохраняет переключатели фильтров личного кабинета. */
-export function saveProfileFilters() {
-    try {
-        localStorage.setItem(HIDE_ZERO_PRICE_STORAGE_KEY, state.hideZeroPrice ? "1" : "0");
-        localStorage.setItem(HIDE_NO_STOCK_STORAGE_KEY, state.hideNoStock ? "1" : "0");
-    } catch (error) {
-        console.warn("Не удалось сохранить фильтры личного кабинета:", error);
-    }
-}
-
-/** Синхронизирует переключатели фильтров в DOM с текущим состоянием. */
-export function syncProfileFiltersUi() {
-    if (dom.hideZeroPrice) {
-        dom.hideZeroPrice.checked = Boolean(state.hideZeroPrice);
-    }
-    if (dom.hideNoStock) {
-        dom.hideNoStock.checked = Boolean(state.hideNoStock);
-    }
-}
-
-/** Открывает модальное окно личного кабинета. */
-export function openProfileModal() {
-    if (!dom.profileModal) {
-        return;
-    }
-
-    updateRegionUpdatedAtLabel();
-    syncProfileFiltersUi();
-
-    const cachedRegion = getCurrentRegionEntry();
-    if (cachedRegion?.updatedAt) {
-        setProfileStatus("Остатки загружены.", "ok");
-    } else {
-        setProfileStatus("Данные будут загружены с сервера при первом обращении.", "");
-    }
-
-    dom.profileModal.classList.remove("hidden");
-}
-
-/** Закрывает модальное окно личного кабинета. */
-export function closeProfileModal() {
-    if (!dom.profileModal) {
-        return;
-    }
-
-    dom.profileModal.classList.add("hidden");
-}
-
 /** Готовит личный кабинет при старте приложения: справочник регионов, сохранённый выбор, синхронизация остатков. */
 export async function initProfileCabinet() {
     state.stockCache = loadStockCache();
     state.stockSyncTokens = {};
     loadProfileFilters();
-    syncProfileFiltersUi();
 
     try {
         const rows = await loadRegionRows();
@@ -97,9 +49,14 @@ export async function initProfileCabinet() {
 
         if (dom.profileRegion && defaultRegion) {
             dom.profileRegion.value = defaultRegion;
+            syncProfileCitySelect(savedSelection.cityId || "1");
+        } else if (defaultRegion) {
+            const cities = state.regionsModel.byRegion.get(defaultRegion) || [];
+            const cityId = cities.some((item) => String(item.id) === String(savedSelection.cityId))
+                ? savedSelection.cityId
+                : String(cities.find((item) => item.id === 1)?.id || cities[0]?.id || "");
+            saveProfileSelection(defaultRegion, cityId);
         }
-
-        syncProfileCitySelect(savedSelection.cityId || "1");
         updateRegionUpdatedAtLabel();
         await syncCurrentRegionStock({ forceFull: false, silent: true });
     } catch (error) {

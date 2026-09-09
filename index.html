@@ -12,12 +12,13 @@
 
     <meta name="theme-color" content="#2d7dff">
     <meta name="description" content="Bonus Navigator - каталог товаров с фильтрацией">
+    <meta name="bn-frontend-version" content="1.2.0">
     
     <link rel="manifest" href="./public/manifest.json">
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%232d7dff' width='192' height='192'/><text x='96' y='130' font-size='100' font-weight='bold' fill='white' text-anchor='middle'>BN</text></svg>">
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%232d7dff' width='192' height='192'/><text x='96' y='130' font-size='100' font-weight='bold' fill='white' text-anchor='middle'>BN</text></svg>">
 
-    <link rel="stylesheet" href="assets/styles/style.css?v=2026090302">
+    <link rel="stylesheet" href="assets/styles/style.css?v=1.2.0">
 
 </head>
 
@@ -203,53 +204,6 @@
     </div>
 </div>
 
-<div id="profileModal" class="install-modal hidden" role="dialog" aria-modal="true" aria-labelledby="profileTitle">
-    <div class="modal-backdrop" id="profileBackdrop"></div>
-    <div class="modal-content profile-content">
-        <div class="modal-header">
-            <div class="modal-header-left">
-                <button id="downloadStockReportBtn" type="button" class="icon-btn" aria-label="Загрузить остатки (.xlsx)" title="Загрузить остатки (.xlsx)">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M12 3v12"></path>
-                        <path d="M7 10l5 5 5-5"></path>
-                        <path d="M5 20h14"></path>
-                    </svg>
-                </button>
-                <h2 id="profileTitle">Личный кабинет</h2>
-            </div>
-            <button id="closeProfileModal" type="button" class="close-btn" aria-label="Закрыть">×</button>
-        </div>
-        <div class="modal-body profile-body">
-            <p class="profile-help">Выберите регион и магазин.</p>
-
-            <label class="auth-label" for="profileRegion">Регион</label>
-            <select id="profileRegion" class="auth-input"></select>
-
-            <label class="auth-label" for="profileCity">Магазин (город)</label>
-            <select id="profileCity" class="auth-input"></select>
-
-            <p id="profileRegionUpdatedAt" class="profile-updated-at">Последнее обновление по региону: -</p>
-
-            <div class="profile-settings">
-                <label class="profile-check">
-                    <input id="hideZeroPrice" type="checkbox">
-                    <span>Не показывать товары с ценой 0</span>
-                </label>
-                <label class="profile-check">
-                    <input id="hideNoStock" type="checkbox">
-                    <span>Показывать только остатки</span>
-                </label>
-            </div>
-
-            <div id="profileStatus" class="auth-error profile-status" aria-live="polite"></div>
-        </div>
-        <div class="modal-footer">
-            <button id="refreshStockBtn" type="button" class="btn-primary">Синхронизировать с сервером</button>
-            <button id="closeProfileFooterBtn" type="button" class="btn-secondary">Закрыть</button>
-        </div>
-    </div>
-</div>
-
 <div id="reportPasswordModal" class="install-modal hidden" role="dialog" aria-modal="true" aria-labelledby="reportPasswordTitle">
     <div class="modal-backdrop" id="reportPasswordBackdrop"></div>
     <div class="modal-content">
@@ -310,7 +264,12 @@
         <div class="card-meta">
             <div class="card-title"></div>
             <div class="card-price"></div>
-            <div class="card-article"></div>
+            <div class="card-article-row">
+                <div class="card-article"></div>
+                <button type="button" class="card-sale-btn" aria-label="Добавить продажу" title="Добавить продажу">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="20" r="1"></circle><circle cx="19" cy="20" r="1"></circle><path d="M3 4h2l2.4 10.2a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.6L21 7H6"></path><path d="M14 9v4M12 11h4"></path></svg>
+                </button>
+            </div>
             <button type="button" class="card-stock-info" aria-label="Показать остатки">i</button>
         </div>
 
@@ -322,6 +281,20 @@
 
 </template>
 
+<div id="saleModal" class="install-modal hidden" role="dialog" aria-modal="true" aria-labelledby="saleModalTitle">
+    <div id="saleBackdrop" class="modal-backdrop"></div>
+    <form id="saleForm" class="modal-content">
+        <div class="modal-header"><h2 id="saleModalTitle">Добавить продажу</h2><button id="closeSaleModal" type="button" class="close-btn">×</button></div>
+        <div class="modal-body profile-body">
+            <strong id="saleProductTitle"></strong><span id="saleProductArticle" class="profile-updated-at"></span>
+            <label class="auth-label" for="salePrice">Цена продажи</label><input id="salePrice" class="auth-input" type="number" min="0" step="0.01" required>
+            <label class="auth-label" for="saleQuantity">Количество</label><input id="saleQuantity" class="auth-input" type="number" min="1" step="1" value="1" required>
+            <div id="saleCalculation" class="profile-update"></div><div id="saleStatus" class="auth-error" aria-live="polite"></div>
+        </div>
+        <div class="modal-footer"><button class="btn-primary" type="submit">Подтвердить продажу</button><button id="cancelSaleModal" class="btn-secondary" type="button">Отмена</button></div>
+    </form>
+</div>
+
 
 
 <!-- ====================================== -->
@@ -329,7 +302,7 @@
 <!-- ====================================== -->
 
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
-<script type="module" src="assets/scripts/app.js?v=2026090302"></script>
+<script type="module" src="assets/scripts/app.js?v=1.2.0"></script>
 
 <!-- Service Worker и PWA регистрация -->
 <script>

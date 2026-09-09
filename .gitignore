@@ -23,6 +23,14 @@ public/products.csv
 # Development tools
 .dev/
 trash/
+.env
+.env.*
+!.env.example
+
+# Личные выгрузки пользователей — никогда не публиковать
+bonus-navigator-backup-*.json
+bonus-navigator-sales-*.xlsx
+report *.xlsx
 
 # OS
 .DS_Store

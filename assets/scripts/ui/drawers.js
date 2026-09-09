@@ -1,6 +1,6 @@
 import { dom } from "../dom.js";
 import { state } from "../state.js";
-import { DEFAULT_MONTH_COLUMN_INDEX } from "../config.js";
+import { ACTIVE_MONTH_INDEX_STORAGE_KEY, ACTIVE_MONTH_LABEL_STORAGE_KEY, DEFAULT_MONTH_COLUMN_INDEX } from "../config.js";
 import { formatMonthBadgeText } from "../utils.js";
 
 /**
@@ -61,6 +61,13 @@ export function syncMonthSelector() {
         const badgeText = formatMonthBadgeText(getActiveMonthLabel());
         dom.monthBadge.textContent = badgeText;
         dom.monthBadge.classList.toggle("hidden", !badgeText);
+    }
+
+    try {
+        localStorage.setItem(ACTIVE_MONTH_INDEX_STORAGE_KEY, String(state.activeMonthColumn));
+        localStorage.setItem(ACTIVE_MONTH_LABEL_STORAGE_KEY, getActiveMonthLabel());
+    } catch (error) {
+        console.warn("Не удалось сохранить выбранный месяц:", error);
     }
 }
 

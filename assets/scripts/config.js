@@ -30,6 +30,16 @@ export const PROFILE_CITY_STORAGE_KEY = "bn_profile_city_v1";
 /** Ключи localStorage для переключателей фильтров личного кабинета. */
 export const HIDE_ZERO_PRICE_STORAGE_KEY = "bn_hide_zero_price_v1";
 export const HIDE_NO_STOCK_STORAGE_KEY = "bn_hide_no_stock_v1";
+export const ACTIVE_MONTH_INDEX_STORAGE_KEY = "bn_active_month_index_v1";
+export const ACTIVE_MONTH_LABEL_STORAGE_KEY = "bn_active_month_label_v1";
+
+/** Версии и настройки безопасной проверки обновлений. */
+export const FRONTEND_VERSION = "1.2.0";
+export const HEALTH_PATH = "/health";
+export const VERSION_CHECK_TIMEOUT_MS = 10_000;
+export const ACKNOWLEDGED_BACKEND_VERSION_KEY = "bn_acknowledged_backend_version_v1";
+export const PENDING_BACKEND_VERSION_KEY = "bn_pending_backend_version_v1";
+export const APP_CACHE_PREFIX = "bonus-navigator-";
 
 /** Базовый адрес прокси-сервера остатков (по умолчанию, если не задан в runtime-конфиге). */
 export const DEFAULT_PROXY_BASE = "https://proxy.bn.alexkyubi.com";

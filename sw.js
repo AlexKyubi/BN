@@ -1,9 +1,10 @@
-const CACHE_NAME = 'bonus-navigator-v7';
+const CACHE_NAME = 'bonus-navigator-v9';
 const urlsToCache = [
   './',
   './index.html',
-  './assets/styles/style.css',
-  './assets/scripts/app.js',
+  './assets/styles/style.css?v=1.2.0',
+  './assets/scripts/app.js?v=1.2.0',
+  './dashboard.html',
   './public/manifest.json'
 ];
 

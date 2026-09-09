@@ -120,7 +120,13 @@ export function syncProfileCitySelect(preferredCityId = "") {
 /** Возвращает id и отображаемое название выбранного города. */
 export function getSelectedCityContext() {
     if (!dom.profileCity) {
-        return { cityId: "", cityName: "" };
+        const saved = loadProfileSelection();
+        let cityName = "";
+        if (saved.cityId && state.regionsModel?.byRegion) {
+            const cities = state.regionsModel.byRegion.get(saved.region) || [];
+            cityName = cities.find((item) => String(item.id) === String(saved.cityId))?.city || "";
+        }
+        return { cityId: saved.cityId, cityName };
     }
 
     const cityId = String(dom.profileCity.value || "").trim();
@@ -130,7 +136,7 @@ export function getSelectedCityContext() {
 
 /** Возвращает название выбранного региона. */
 export function getSelectedRegionValue() {
-    return String(dom.profileRegion?.value || "").trim();
+    return String(dom.profileRegion?.value || loadProfileSelection().region || "").trim();
 }
 
 /** Определяет отображаемое название текущего города (из select либо из сохранённого выбора). */

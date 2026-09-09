@@ -1823,6 +1823,67 @@ select.auth-input optgroup{
     height:16px;
 }
 
+.card-sale-btn{
+    display:grid;
+    place-items:center;
+    width:28px;
+    height:28px;
+    padding:0;
+    border:1px solid rgba(45,125,255,.55);
+    border-radius:9px;
+    background:rgba(45,125,255,.18);
+    color:#b8d4ff;
+    cursor:pointer;
+    flex:0 0 auto;
+}
+
+.card-sale-btn:hover{background:var(--primary);color:#fff}
+.card-sale-btn svg{width:16px;height:16px}
+.card-article-row{display:flex;align-items:center;gap:8px;max-width:100%}
+
+.profile-update{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    margin-top:4px;
+    padding:12px;
+    border:1px solid var(--border);
+    border-radius:12px;
+    background:rgba(255,255,255,.03);
+}
+
+.profile-update-copy{
+    display:grid;
+    gap:3px;
+    min-width:0;
+}
+
+.profile-version,
+.profile-update-status{
+    color:var(--muted);
+    font-size:.82rem;
+}
+
+.profile-update-status.error{
+    color:#ff8f8f;
+}
+
+.profile-update .btn-primary{
+    flex:0 0 auto;
+}
+
+.profile-update .btn-primary.hidden{
+    display:none;
+}
+
+@media (max-width:420px){
+    .profile-update{
+        align-items:stretch;
+        flex-direction:column;
+    }
+}
+
 .stock-info-body{
     display:flex;
     flex-direction:column;

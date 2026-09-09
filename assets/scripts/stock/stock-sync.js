@@ -1,11 +1,7 @@
-import { dom } from "../dom.js";
-import { state } from "../state.js";
-import { getSelectedCityContext, getSelectedRegionValue, saveProfileSelection } from "../regions/regions.js";
+import { getSelectedCityContext, getSelectedRegionValue } from "../regions/regions.js";
 import { setProfileStatus } from "../profile/profile-status.js";
 import { renderCards } from "../ui/grid.js";
-import { getActiveMonthLabel } from "../ui/drawers.js";
-import { askReportPassword } from "../ui/password-prompt.js";
-import { downloadRegionStockReport, fetchRegionStockSnapshot, normalizeStockRecord } from "./stock-api.js";
+import { fetchRegionStockSnapshot, normalizeStockRecord } from "./stock-api.js";
 import {
     ensureCurrentRegionEntry,
     getCurrentRegionSyncToken,
@@ -65,82 +61,5 @@ export async function syncCurrentRegionStock(options = {}) {
 
     if (!silent) {
         setProfileStatus("Данные региона синхронизированы с сервером.", "ok");
-    }
-}
-
-/** Принудительно обновляет остатки всего каталога для выбранного региона (кнопка "Обновить"). */
-export async function refreshStockForAllItems() {
-    if (!state.items.length) {
-        setProfileStatus("Товары ещё не загружены.", "error");
-        return;
-    }
-
-    const region = getSelectedRegionValue();
-    const { cityId } = getSelectedCityContext();
-
-    if (!region) {
-        setProfileStatus("Выберите регион.", "error");
-        return;
-    }
-
-    if (!cityId) {
-        setProfileStatus("Выберите магазин (город).", "error");
-        return;
-    }
-
-    if (!dom.refreshStockBtn) {
-        return;
-    }
-
-    saveProfileSelection(region, cityId);
-    dom.refreshStockBtn.disabled = true;
-    try {
-        await syncCurrentRegionStock({ forceFull: true, silent: false });
-    } catch (error) {
-        console.warn("Ошибка синхронизации остатков:", error);
-        setProfileStatus(`Ошибка синхронизации: ${error.message || error}`, "error");
-    } finally {
-        dom.refreshStockBtn.disabled = false;
-    }
-}
-
-/** Запрашивает у сервера XLSX-отчёт по остаткам выбранного региона и скачивает его (кнопка "Загрузить остатки"). */
-export async function downloadCurrentRegionStockReport() {
-    const region = getSelectedRegionValue();
-    const { cityId } = getSelectedCityContext();
-
-    if (!region || !cityId) {
-        setProfileStatus("Выберите регион и магазин.", "error");
-        return;
-    }
-
-    if (!dom.downloadStockReportBtn) {
-        return;
-    }
-
-    const password = await askReportPassword();
-    if (password === null) {
-        return;
-    }
-
-    saveProfileSelection(region, cityId);
-    dom.downloadStockReportBtn.disabled = true;
-    const previousTitle = dom.downloadStockReportBtn.title;
-    dom.downloadStockReportBtn.title = "Формирование...";
-    setProfileStatus("Формируем файл остатков...", "");
-
-    try {
-        await downloadRegionStockReport(cityId, {
-            password,
-            monthColumn: state.activeMonthColumn,
-            monthLabel: getActiveMonthLabel(),
-        });
-        setProfileStatus("Файл остатков скачан.", "ok");
-    } catch (error) {
-        console.warn("Ошибка загрузки отчёта по остаткам:", error);
-        setProfileStatus(`Не удалось сформировать отчёт: ${error.message || error}`, "error");
-    } finally {
-        dom.downloadStockReportBtn.disabled = false;
-        dom.downloadStockReportBtn.title = previousTitle;
     }
 }
