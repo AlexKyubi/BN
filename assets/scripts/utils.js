@@ -36,6 +36,11 @@ export function normalizeArticleSearchInput(value) {
     return String(value || "").replace(/\D+/g, "");
 }
 
+/** Оставляет латинские буквы, цифры и дефис для поиска по артикулу или модели. */
+export function normalizeCatalogSearchInput(value) {
+    return String(value || "").toLocaleUpperCase("en-US").replace(/[^A-Z0-9-]+/g, "");
+}
+
 /** Извлекает артикул (5+ цифр подряд) из произвольного текста. */
 export function extractArticleFromText(value) {
     const raw = String(value || "").trim();

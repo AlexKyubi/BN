@@ -1,7 +1,7 @@
 import { state } from "./state.js";
 import { dom } from "./dom.js";
 import { CATALOG_UI_STATE_STORAGE_KEY, CATEGORY_ALL, QUICK_RETURN_STATE_KEY, QUICK_RETURN_TTL } from "./config.js";
-import { normalizeArticleSearchInput } from "./utils.js";
+import { normalizeCatalogSearchInput } from "./utils.js";
 
 /**
  * Сохранение и восстановление состояния списка при быстром возврате из кабинета или со страницы товара.
@@ -35,7 +35,7 @@ export function hydrateCatalogUiState() {
         if (!payload || typeof payload !== "object") return false;
         state.activeCategory = String(payload.activeCategory || CATEGORY_ALL).slice(0, 150);
         state.activeStars = Math.min(5, Math.max(0, Math.trunc(Number(payload.activeStars) || 0)));
-        state.searchQuery = normalizeArticleSearchInput(payload.searchQuery || "");
+        state.searchQuery = normalizeCatalogSearchInput(payload.searchQuery || "");
         state.priceSort = ["asc", "desc"].includes(payload.priceSort) ? payload.priceSort : "none";
         state.pendingQuickReturnMonthColumn = Number.isInteger(Number(payload.activeMonthColumn))
             ? Number(payload.activeMonthColumn)
@@ -141,7 +141,7 @@ export function hydrateQuickReturnState() {
 
     state.activeCategory = uiState.activeCategory || state.activeCategory;
     state.activeStars = Number(uiState.activeStars || 0);
-    state.searchQuery = normalizeArticleSearchInput(uiState.searchQuery || "");
+    state.searchQuery = normalizeCatalogSearchInput(uiState.searchQuery || "");
     state.priceSort = ["asc", "desc"].includes(uiState.priceSort) ? uiState.priceSort : "none";
     state.pendingQuickReturnMonthColumn = Number.isFinite(Number(uiState.activeMonthColumn))
         ? Number(uiState.activeMonthColumn)

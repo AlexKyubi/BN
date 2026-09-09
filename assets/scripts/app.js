@@ -20,7 +20,7 @@
 import { dom } from "./dom.js";
 import { state } from "./state.js";
 import { DASHBOARD_FAST_RETURN_KEY, DASHBOARD_RETURN_MARKER_KEY, DEFAULT_MONTH_COLUMN_INDEX } from "./config.js";
-import { normalizeArticleSearchInput, normalizeGoogleSheetCsvUrl } from "./utils.js";
+import { normalizeCatalogSearchInput, normalizeGoogleSheetCsvUrl } from "./utils.js";
 import {
     clearAuthError,
     clearAuthorizationOnDevice,
@@ -237,7 +237,7 @@ async function initAuthorization() {
 /** Навешивает все обработчики событий интерфейса (поиск, фильтры, модалки, drag/keyboard). */
 function bindEvents() {
     dom.search.addEventListener("input", (event) => {
-        const normalized = normalizeArticleSearchInput(event.target.value);
+        const normalized = normalizeCatalogSearchInput(event.target.value);
         if (event.target.value !== normalized) {
             event.target.value = normalized;
         }

@@ -1,6 +1,16 @@
 const DB_NAME = "bonus-navigator-sales";
 const STORE_NAME = "sales";
 const DB_VERSION = 1;
+let prunedYear = null;
+
+function retainedYear() {
+    return new Date().getFullYear();
+}
+
+function isInRetainedYear(value) {
+    const date = value instanceof Date ? value : new Date(value);
+    return !Number.isNaN(date.getTime()) && date.getFullYear() === retainedYear();
+}
 
 function openDatabase() {
     return new Promise((resolve, reject) => {
@@ -73,23 +83,75 @@ export function createSaleId() {
     return globalThis.crypto?.randomUUID?.() || `sale-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-export function getAllSales() {
+function getAllSalesRaw() {
     return runTransaction("readonly", (store, done) => {
         const request = store.getAll();
         request.onsuccess = () => done((request.result || []).map(normalizeSale).filter(Boolean));
     });
 }
 
-export function saveSale(raw, { preserveUpdatedAt = false } = {}) {
+/** Удаляет повреждённые записи и историю до 1 января текущего календарного года. */
+export async function pruneSalesHistory({ force = false } = {}) {
+    const year = retainedYear();
+    if (!force && prunedYear === year) return 0;
+    const deleted = await runTransaction("readwrite", (store, done) => {
+        let count = 0;
+        const request = store.openCursor();
+        request.onerror = () => done(count);
+        request.onsuccess = () => {
+            const cursor = request.result;
+            if (!cursor) {
+                done(count);
+                return;
+            }
+            const sale = normalizeSale(cursor.value);
+            if (!sale || !isInRetainedYear(sale.soldAt)) {
+                cursor.delete();
+                count += 1;
+            }
+            cursor.continue();
+        };
+    });
+    prunedYear = year;
+    return deleted;
+}
+
+export async function getAllSales() {
+    await pruneSalesHistory();
+    return getAllSalesRaw();
+}
+
+export async function saveSale(raw, { preserveUpdatedAt = false } = {}) {
     const sale = normalizeSale(raw);
     if (!sale) {
         return Promise.reject(new Error("Проверьте данные продажи."));
     }
+    if (!isInRetainedYear(sale.soldAt)) {
+        return Promise.reject(new Error(`История хранится только с 1 января ${retainedYear()} года.`));
+    }
+    await pruneSalesHistory();
     if (!preserveUpdatedAt) {
         sale.updatedAt = new Date().toISOString();
     }
     return runTransaction("readwrite", (store, done) => {
         store.put(sale).onsuccess = () => done(sale);
+    });
+}
+
+export async function deleteSale(id) {
+    const saleId = String(id || "").trim();
+    if (!saleId) {
+        return Promise.reject(new Error("Продажа не найдена."));
+    }
+    return runTransaction("readwrite", (store, done) => {
+        const lookup = store.get(saleId);
+        lookup.onsuccess = () => {
+            if (!lookup.result) {
+                done(false);
+                return;
+            }
+            store.delete(saleId).onsuccess = () => done(true);
+        };
     });
 }
 
@@ -120,7 +182,9 @@ export async function importSalesBackup(text) {
             incomingById.set(sale.id, sale);
         }
     }
-    const incoming = [...incomingById.values()];
+    const allIncoming = [...incomingById.values()];
+    const incoming = allIncoming.filter((sale) => isInRetainedYear(sale.soldAt));
+    const ignoredOutsideRetention = allIncoming.length - incoming.length;
     const current = new Map((await getAllSales()).map((sale) => [sale.id, sale]));
     let imported = 0;
     for (const sale of incoming) {
@@ -131,5 +195,5 @@ export async function importSalesBackup(text) {
             imported += 1;
         }
     }
-    return { imported, total: normalizedIncoming.length };
+    return { imported, total: normalizedIncoming.length, ignoredOutsideRetention };
 }

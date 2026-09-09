@@ -40,7 +40,7 @@ export const ACTIVE_MONTH_INDEX_STORAGE_KEY = "bn_active_month_index_v1";
 export const ACTIVE_MONTH_LABEL_STORAGE_KEY = "bn_active_month_label_v1";
 
 /** Версии и настройки безопасной проверки обновлений. */
-export const FRONTEND_VERSION = "1.3.0";
+export const FRONTEND_VERSION = "1.3.2";
 export const HEALTH_PATH = "/health";
 export const VERSION_CHECK_TIMEOUT_MS = 10_000;
 export const ACKNOWLEDGED_BACKEND_VERSION_KEY = "bn_acknowledged_backend_version_v1";

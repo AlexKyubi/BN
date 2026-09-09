@@ -6,7 +6,7 @@
     <title>Личный кабинет — Bonus Navigator</title>
     <meta name="theme-color" content="#0b111d">
     <meta name="description" content="Bonus Navigator — личный кабинет и аналитика продаж">
-    <link rel="manifest" href="./public/manifest.json?v=1.3.0">
+    <link rel="manifest" href="./public/manifest.json?v=1.3.2">
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%232d7dff' width='192' height='192'/><text x='96' y='130' font-size='100' font-weight='bold' fill='white' text-anchor='middle'>BN</text></svg>">
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%232d7dff' width='192' height='192'/><text x='96' y='130' font-size='100' font-weight='bold' fill='white' text-anchor='middle'>BN</text></svg>">
     <script>
@@ -24,7 +24,7 @@
             window.location.replace("index.html");
         }
     </script>
-    <link rel="stylesheet" href="assets/styles/style.css?v=1.3.0">
+    <link rel="stylesheet" href="assets/styles/style.css?v=1.3.2">
     <style>
         .dashboard-shell{max-width:1180px;margin:0 auto;padding:18px 16px 96px}
         .dashboard-header{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:15px 18px;border:1px solid var(--border);border-radius:0 0 18px 18px;background:linear-gradient(135deg,rgba(10,14,24,.96),rgba(18,24,38,.92));backdrop-filter:blur(16px);box-shadow:var(--shadow)}
@@ -44,6 +44,7 @@
         .period-title{margin-top:4px;font-size:clamp(1.45rem,4vw,2.1rem)}
         .month-control{display:flex;align-items:center;gap:5px;padding:5px;border:1px solid var(--border);border-radius:14px;background:rgba(255,255,255,.04)}
         .month-control button{width:36px;height:36px;border:0;border-radius:10px;background:transparent;color:var(--text);font-size:1.25rem}
+        .month-control button:disabled{opacity:.28;cursor:not-allowed}
         .month-control span{padding:0 7px;font-size:.86rem;font-weight:700}
         .hero-card{position:relative;overflow:hidden;padding:24px;border:1px solid hsl(var(--accent-hue) 100% 69% / .42);border-radius:24px;background:linear-gradient(135deg,hsl(var(--accent-hue) 100% 59% / .26),rgba(16,28,48,.92) 62%);box-shadow:0 18px 48px rgba(0,0,0,.3)}
         .hero-card::after{content:"";position:absolute;right:-70px;top:-90px;width:230px;height:230px;border-radius:50%;background:hsl(var(--accent-hue) 100% 59% / .22);filter:blur(8px)}
@@ -108,15 +109,20 @@
         .theme-control{display:grid;gap:9px;padding-top:12px;border-top:1px solid var(--border)}
         .theme-control-label{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:.74rem}
         .theme-color-preview{width:14px;height:14px;flex:0 0 auto;border:2px solid rgba(255,255,255,.55);border-radius:50%;background:var(--primary);box-shadow:0 0 0 3px var(--primary-soft)}
-        .theme-range{width:100%;height:8px;border:0;border-radius:999px;appearance:none;background:linear-gradient(90deg,#ff3b3b,#ffe53b,#39e75f,#35d7ff,#356dff,#a33bff,#ff3ba7,#ff3b3b);cursor:pointer}
+        .theme-range{width:100%;height:8px;border:0;border-radius:999px;appearance:none;background:linear-gradient(90deg,#ff3b3b,#ffe53b,#39e75f,#35d7ff,#356dff,#a33bff,#ff3ba7,#ff3b3b);cursor:pointer;touch-action:pan-y}
         .theme-range::-webkit-slider-thumb{width:20px;height:20px;border:3px solid #fff;border-radius:50%;appearance:none;background:var(--primary);box-shadow:0 2px 8px rgba(0,0,0,.5)}
         .theme-range::-moz-range-thumb{width:16px;height:16px;border:3px solid #fff;border-radius:50%;background:var(--primary);box-shadow:0 2px 8px rgba(0,0,0,.5)}
         .profile-sync-status{min-height:1.1em;color:var(--muted);font-size:.72rem;line-height:1.4}
         .profile-sync-status.syncing,.profile-sync-status.error{color:#ff8f8f}
         .profile-sync-status.ok{color:#8ff0b0}
-        .sales-filter-row{display:grid;grid-template-columns:minmax(180px,1fr) minmax(170px,.55fr);gap:10px;margin-bottom:10px}
+        .sales-history-page{padding-top:max(26px,env(safe-area-inset-top))}
+        .sales-page-header{padding:4px 2px 2px}
+        .sales-filter-row{display:grid;grid-template-columns:minmax(180px,1fr) minmax(150px,.55fr) minmax(150px,.55fr);gap:10px;margin-bottom:14px}
+        .sales-filter-field{display:grid;gap:6px;min-width:0}
+        .sales-filter-field>span{color:var(--muted);font-size:.72rem;font-weight:700}
         @media(max-width:620px){.sales-filter-row{grid-template-columns:1fr}}
-        @media(max-width:560px){.dashboard-shell{padding:0 12px 96px}.dashboard-header{margin:0 -12px;padding:12px;border-radius:0 0 18px 18px}.dashboard-avatar{display:none}.period-row{align-items:flex-end}.month-control span{display:none}.hero-card{padding:20px}.metric-grid{grid-template-columns:1fr 1fr}.metric-card:first-child{grid-column:1/-1}.panel{padding:15px}.chart{gap:5px;height:150px}.chart-column span{font-size:.59rem}.sale-row{grid-template-columns:44px minmax(0,1fr) auto;gap:8px}.profile-card{grid-template-columns:1fr;align-items:stretch;gap:18px}.region-select{max-width:none;width:100%}}
+        @media(max-width:560px){.dashboard-shell{padding:0 12px 96px}.dashboard-header{margin:0 -12px;padding:12px;border-radius:0 0 18px 18px}.dashboard-avatar{display:none}.period-row{align-items:flex-end}.month-control span{display:none}.hero-card{padding:20px}.metric-grid{grid-template-columns:1fr 1fr}.metric-card:first-child{grid-column:1/-1}.panel{padding:15px}.chart{gap:5px;height:150px}.chart-column span{font-size:.59rem}.sale-row{grid-template-columns:44px minmax(0,1fr) auto;gap:8px}.profile-card{grid-template-columns:1fr;align-items:stretch;gap:18px}.region-select{max-width:none;width:100%}.sales-history-page{padding-top:max(20px,env(safe-area-inset-top))}.sales-page-header{padding:8px 2px 4px}}
+        @media(pointer:coarse){.theme-range{height:28px;background-size:100% 8px;background-position:center;background-repeat:no-repeat}}
     </style>
 </head>
 <body>
@@ -240,22 +246,23 @@
                 </section>
 
                 <section class="panel transfer-panel profile-update" aria-labelledby="appVersionTitle">
-                    <div class="profile-update-copy"><strong id="appVersionTitle">Версия приложения</strong><span id="appVersionStatus" class="profile-version">Фронт 1.3.0</span><span id="appUpdateStatus" class="profile-update-status" aria-live="polite"></span></div>
+                    <div class="profile-update-copy"><strong id="appVersionTitle">Версия приложения</strong><span id="appVersionStatus" class="profile-version">Фронт 1.3.2</span><span id="appUpdateStatus" class="profile-update-status" aria-live="polite"></span></div>
                     <button id="updateAppBtn" type="button" class="btn-primary button-with-icon hidden"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>Обновиться</button>
                 </section>
             </div>
         </main>
     </div>
 
-    <section id="salesPage" class="dashboard-shell hidden" aria-labelledby="salesPageTitle">
-        <div class="period-row">
+    <section id="salesPage" class="dashboard-shell sales-history-page hidden" aria-labelledby="salesPageTitle">
+        <div class="period-row sales-page-header">
             <div><div class="eyebrow">История</div><h2 id="salesPageTitle" class="period-title">Все продажи</h2></div>
             <button id="closeSalesList" class="icon-action" type="button" aria-label="Вернуться к обзору"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button>
         </div>
         <section class="panel" style="margin-top:16px">
             <div class="sales-filter-row">
-                <input id="salesArticleSearch" class="region-select" style="width:100%;max-width:none" type="search" inputmode="numeric" placeholder="Поиск по артикулу" aria-label="Поиск продажи по артикулу">
-                <input id="salesDateSearch" class="region-select" style="width:100%;max-width:none" type="date" aria-label="Поиск продажи по дате">
+                <label class="sales-filter-field"><span>Артикул</span><input id="salesArticleSearch" class="region-select" style="width:100%;max-width:none" type="search" inputmode="text" autocapitalize="characters" placeholder="Например, HOQ-F3AAN3WB" aria-label="Поиск продажи по артикулу"></label>
+                <label class="sales-filter-field"><span>С даты</span><input id="salesDateFrom" class="region-select" style="width:100%;max-width:none" type="date" aria-label="Начальная дата продаж"></label>
+                <label class="sales-filter-field"><span>По дату</span><input id="salesDateTo" class="region-select" style="width:100%;max-width:none" type="date" aria-label="Конечная дата продаж"></label>
             </div>
             <div id="allSales" class="sale-list"></div>
         </section>
@@ -273,7 +280,13 @@
                 <label class="auth-label" for="editSaleState">Статус</label><select id="editSaleState" class="auth-input"><option value="sold">Продана</option><option value="returned">Возвращена</option></select>
                 <div id="editSaleStatus" class="auth-error" aria-live="polite"></div>
             </div>
-            <div class="modal-footer"><button class="btn-primary" type="submit">Сохранить</button><button id="cancelEditSale" class="btn-secondary" type="button">Закрыть</button></div>
+            <div class="modal-footer edit-sale-footer">
+                <button id="deleteSaleBtn" class="btn-danger button-with-icon" type="button" aria-describedby="editSaleStatus">
+                    <svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 10v6M14 10v6"/></svg>
+                    <span id="deleteSaleLabel">Удалить</span>
+                </button>
+                <div class="edit-sale-footer-actions"><button class="btn-primary" type="submit">Сохранить</button><button id="cancelEditSale" class="btn-secondary" type="button">Закрыть</button></div>
+            </div>
         </form>
     </div>
 
@@ -293,6 +306,6 @@
         <button id="navOverview" class="active" type="button"><span class="nav-icon"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span><span>Обзор</span></button>
         <button id="navSales" type="button"><span class="nav-icon"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><circle cx="3" cy="6" r="1"/><circle cx="3" cy="12" r="1"/><circle cx="3" cy="18" r="1"/></svg></span><span>Продажи</span></button>
     </nav>
-    <script type="module" src="assets/scripts/sales/dashboard.js?v=1.3.0"></script>
+    <script type="module" src="assets/scripts/sales/dashboard.js?v=1.3.2"></script>
 </body>
 </html>

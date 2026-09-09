@@ -1,5 +1,7 @@
 import { DEFAULT_THEME_HUE, THEME_HUE_STORAGE_KEY } from "../config.js";
 
+let globalListenersBound = false;
+
 function normalizeHue(value) {
     if (value === null || value === undefined || String(value).trim() === "") {
         return DEFAULT_THEME_HUE;
@@ -24,6 +26,10 @@ function applyHue(hue) {
     return normalized;
 }
 
+function applyStoredHue() {
+    return applyHue(loadHue());
+}
+
 function saveHue(hue) {
     try {
         localStorage.setItem(THEME_HUE_STORAGE_KEY, String(hue));
@@ -34,9 +40,19 @@ function saveHue(hue) {
 
 /** Применяет сохранённый акцент и подключает слайдер, если он есть на странице. */
 export function initThemeManager() {
-    const currentHue = applyHue(loadHue());
+    const currentHue = applyStoredHue();
     const slider = document.getElementById("themeHue");
     const preview = document.getElementById("themeColorPreview");
+
+    if (!globalListenersBound) {
+        globalListenersBound = true;
+        // Каталог может вернуться из BFCache после изменения цвета в dashboard.
+        window.addEventListener("pageshow", applyStoredHue);
+        window.addEventListener("storage", (event) => {
+            if (event.key === THEME_HUE_STORAGE_KEY) applyStoredHue();
+        });
+    }
+
     if (!slider) return;
 
     slider.value = String(currentHue);

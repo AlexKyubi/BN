@@ -1831,6 +1831,9 @@ select.auth-input optgroup{
 }
 
 .card-sale-btn{
+    position:absolute;
+    right:12px;
+    top:58px;
     display:grid;
     place-items:center;
     width:28px;
@@ -1842,13 +1845,11 @@ select.auth-input optgroup{
     color:var(--primary-light);
     cursor:pointer;
     flex:0 0 auto;
-    /* Оставляем кнопку сразу после артикула по X, но поднимаем её к кнопке остатков. */
-    transform:translateY(-48px);
 }
 
 .card-sale-btn:hover{background:var(--primary);color:#fff}
 .card-sale-btn svg{width:16px;height:16px}
-.card-article-row{display:flex;align-items:center;gap:8px;max-width:100%}
+.card-article-row{display:flex;align-items:center;max-width:100%}
 
 .profile-update{
     display:flex;
@@ -2099,6 +2100,75 @@ select.auth-input optgroup{
     background:rgba(255,255,255,.12);
 }
 
+.edit-sale-footer{
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+}
+
+.edit-sale-footer-actions{
+    display:flex;
+    gap:10px;
+    margin-left:auto;
+}
+
+.btn-danger{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:7px;
+    padding:10px 16px;
+    background:rgba(255,82,82,.1);
+    color:#ff9a9a;
+    border:1px solid rgba(255,102,102,.42);
+    border-radius:8px;
+    cursor:pointer;
+    font-weight:600;
+    font-size:.95rem;
+    transition:.2s ease;
+}
+
+.btn-danger:hover{
+    background:rgba(255,82,82,.18);
+}
+
+.btn-danger.confirming{
+    background:#b93636;
+    border-color:#e26161;
+    color:#fff;
+}
+
+.btn-danger:disabled{
+    cursor:wait;
+    opacity:.65;
+}
+
+.btn-danger .ui-icon{
+    width:18px;
+    height:18px;
+}
+
+@media(max-width:430px){
+    .edit-sale-footer{
+        align-items:stretch;
+    }
+
+    .btn-danger,
+    .edit-sale-footer-actions{
+        width:100%;
+    }
+
+    .edit-sale-footer-actions{
+        margin-left:0;
+    }
+
+    .edit-sale-footer-actions > button{
+        flex:1;
+        padding-left:12px;
+        padding-right:12px;
+    }
+}
+
 /* ==========================================================
    АДАПТИВНОСТЬ
 ========================================================== */
@@ -2156,6 +2226,11 @@ select.auth-input optgroup{
         font-size:.85rem;
     }
 
+    .card-sale-btn{
+        right:8px;
+        top:48px;
+    }
+
 }
 
 @media(max-width:430px){
@@ -2206,7 +2281,8 @@ select.auth-input optgroup{
     }
 
     .card-sale-btn{
-        transform:translateY(-45px);
+        right:6px;
+        top:40px;
     }
 
 }
