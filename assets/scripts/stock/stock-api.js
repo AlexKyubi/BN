@@ -1,4 +1,4 @@
-import { DEFAULT_PROXY_BASE, LANGUAGE_ID, REGIONS_PATH, REGION_STOCK_PATH, REGION_STOCK_REPORT_PATH, REGION_SYNC_TIMEOUT_MS, STOCK_CONFIG, STOCK_FETCH_TIMEOUT_MS, STOCK_PATH } from "../config.js";
+import { CATALOG_FETCH_TIMEOUT_MS, CATALOG_PATH, DEFAULT_PROXY_BASE, LANGUAGE_ID, REGIONS_PATH, REGION_STOCK_PATH, REGION_STOCK_REPORT_PATH, REGION_SYNC_TIMEOUT_MS, STOCK_CONFIG, STOCK_FETCH_TIMEOUT_MS, STOCK_PATH } from "../config.js";
 import { parseResponseBody } from "../utils.js";
 import { clearAccessToken, loadAccessToken } from "../auth/access-token.js";
 
@@ -250,4 +250,31 @@ export async function downloadRegionStockReport(cityId, { password = "", monthCo
     link.remove();
     // Safari/WebView могут начать чтение blob уже после обработки click.
     setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+}
+
+/** Загружает полный канонический каталог и серверные привязки месячных процентов. */
+export async function fetchCatalog() {
+    const configuredBase = String(STOCK_CONFIG.proxyBase || DEFAULT_PROXY_BASE).trim();
+    const normalizedBase = configuredBase.endsWith("/") ? configuredBase.slice(0, -1) : configuredBase;
+    const url = new URL(`${normalizedBase}${CATALOG_PATH}`, window.location.origin);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), CATALOG_FETCH_TIMEOUT_MS);
+    let response;
+    try {
+        response = await fetch(url.toString(), { method: "GET", headers: buildRequestHeaders(), signal: controller.signal });
+    } catch (error) {
+        if (error?.name === "AbortError") throw new Error("Сервер каталога не ответил вовремя.");
+        throw error;
+    } finally {
+        clearTimeout(timeoutId);
+    }
+    const payload = await parseResponseBody(response);
+    if (!response.ok) {
+        throwResponseError(response, payload);
+    }
+    return {
+        version: String(payload?.version || ""),
+        headers: Array.isArray(payload?.headers) ? payload.headers.map(String) : [],
+        products: Array.isArray(payload?.products) ? payload.products : [],
+    };
 }

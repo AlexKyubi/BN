@@ -1,6 +1,6 @@
 import { state } from "./state.js";
 import { dom } from "./dom.js";
-import { CATALOG_UI_STATE_STORAGE_KEY, CATEGORY_ALL, QUICK_RETURN_STATE_KEY, QUICK_RETURN_TTL } from "./config.js";
+import { CATALOG_UI_STATE_STORAGE_KEY, CATEGORY_ALL, QUICK_RETURN_SCHEMA_VERSION, QUICK_RETURN_STATE_KEY, QUICK_RETURN_TTL } from "./config.js";
 import { normalizeCatalogSearchInput } from "./utils.js";
 
 /**
@@ -53,14 +53,14 @@ export function saveQuickReturnState() {
     const uiState = createUiState(true);
 
     const payload = {
+        schemaVersion: QUICK_RETURN_SCHEMA_VERSION,
         timestamp: Date.now(),
         uiState,
         items: state.items,
         categories: state.categories,
         monthColumns: state.monthColumns,
-        sourceRows: state.sourceRows,
-        sourceBaseIndices: state.sourceBaseIndices,
-        sourceWarnings: state.sourceWarnings,
+        catalogProducts: state.catalogProducts,
+        catalogVersion: state.catalogVersion,
         stockCache: state.stockCache,
         stockSyncTokens: state.stockSyncTokens,
     };
@@ -82,12 +82,13 @@ export function hasUsableQuickReturnState() {
         return Boolean(
             payload
             && typeof payload === "object"
+            && payload.schemaVersion === QUICK_RETURN_SCHEMA_VERSION
             && Number.isFinite(Number(payload.timestamp))
             && Date.now() - Number(payload.timestamp) <= QUICK_RETURN_TTL
             && Array.isArray(payload.items)
             && payload.items.length
-            && Array.isArray(payload.sourceRows)
-            && payload.sourceRows.length
+            && Array.isArray(payload.catalogProducts)
+            && payload.catalogProducts.length
         );
     } catch (error) {
         console.warn("Не удалось проверить состояние быстрого возврата:", error);
@@ -116,6 +117,10 @@ export function hydrateQuickReturnState() {
         return false;
     }
 
+    if (payload.schemaVersion !== QUICK_RETURN_SCHEMA_VERSION) {
+        return false;
+    }
+
     if (!payload.timestamp || Date.now() - payload.timestamp > QUICK_RETURN_TTL) {
         return false;
     }
@@ -129,9 +134,8 @@ export function hydrateQuickReturnState() {
     }
 
     if (Array.isArray(payload.monthColumns)) state.monthColumns = payload.monthColumns;
-    if (Array.isArray(payload.sourceRows)) state.sourceRows = payload.sourceRows;
-    if (payload.sourceBaseIndices && typeof payload.sourceBaseIndices === "object") state.sourceBaseIndices = payload.sourceBaseIndices;
-    if (Array.isArray(payload.sourceWarnings)) state.sourceWarnings = payload.sourceWarnings;
+    if (Array.isArray(payload.catalogProducts)) state.catalogProducts = payload.catalogProducts;
+    if (typeof payload.catalogVersion === "string") state.catalogVersion = payload.catalogVersion;
     if (payload.stockCache?.regions && typeof payload.stockCache.regions === "object") state.stockCache = payload.stockCache;
     if (payload.stockSyncTokens && typeof payload.stockSyncTokens === "object") state.stockSyncTokens = payload.stockSyncTokens;
 

@@ -2,20 +2,6 @@
  * Мелкие переиспользуемые хелперы: строки, регэкспы, CSV-парсинг, разбор чисел/процентов.
  */
 
-/** Нормализует имя заголовка для нестрогого сравнения (без пробелов/спецсимволов). */
-export function normalizeHeaderName(value) {
-    return (value || "")
-        .toString()
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9а-яё]+/gi, "");
-}
-
-/** Экранирует спецсимволы regex, чтобы использовать произвольную строку как литерал в паттерне. */
-export function escapeRegExp(string) {
-    return String(string).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 /** Экранирует HTML-спецсимволы перед вставкой значения в innerHTML. */
 export function escapeHtml(value) {
     return String(value)
@@ -39,22 +25,6 @@ export function normalizeArticleSearchInput(value) {
 /** Оставляет латинские буквы, цифры и дефис для поиска по артикулу или модели. */
 export function normalizeCatalogSearchInput(value) {
     return String(value || "").toLocaleUpperCase("en-US").replace(/[^A-Z0-9-]+/g, "");
-}
-
-/** Извлекает артикул (5+ цифр подряд) из произвольного текста. */
-export function extractArticleFromText(value) {
-    const raw = String(value || "").trim();
-    if (!raw) {
-        return "";
-    }
-
-    const normalizedOnlyDigits = normalizeArticleSearchInput(raw);
-    if (normalizedOnlyDigits.length >= 5) {
-        return normalizedOnlyDigits;
-    }
-
-    const match = raw.match(/\b(\d{5,})\b/);
-    return match ? String(match[1]).trim() : "";
 }
 
 /** Приводит произвольную ссылку на Google Sheets к каноническому виду экспорта в CSV. */
@@ -86,33 +56,6 @@ export function normalizeGoogleSheetCsvUrl(value) {
     const gidPart = /^\d+$/.test(gid) ? `&gid=${gid}` : "";
 
     return `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv${gidPart}`;
-}
-
-/** Ищет индекс колонки по списку возможных названий (точное совпадение, затем нестрогое). */
-export function findColumnIndex(headers, possibleNames) {
-    const normalizedHeaders = headers.map(normalizeHeaderName);
-
-    for (const name of possibleNames) {
-        const normalizedName = normalizeHeaderName(name);
-        const exactIndex = normalizedHeaders.indexOf(normalizedName);
-        if (exactIndex !== -1) {
-            return exactIndex;
-        }
-
-        if (normalizedName.length === 1) {
-            continue; // односимвольные заголовки не должны матчиться по подстроке
-        }
-
-        const fuzzyIndex = normalizedHeaders.findIndex((header) =>
-            header.includes(normalizedName) || normalizedName.includes(header)
-        );
-
-        if (fuzzyIndex !== -1) {
-            return fuzzyIndex;
-        }
-    }
-
-    return -1;
 }
 
 /** Собирает список "колонок месяцев" начиная с defaultMonthColumnIndex до конца заголовков. */
@@ -150,63 +93,6 @@ export function formatMonthBadgeText(label) {
 
     const token = normalized.split(" ")[0] || normalized;
     return token.slice(0, 3);
-}
-
-/** Простой построчный CSV-парсер с поддержкой кавычек и экранирования. */
-export function parseCsv(text) {
-    const rows = [];
-    let row = [];
-    let cell = "";
-    let insideQuote = false;
-
-    for (let i = 0; i < text.length; i += 1) {
-        const char = text[i];
-        if (insideQuote) {
-            if (char === '"') {
-                if (text[i + 1] === '"') {
-                    cell += '"';
-                    i += 1;
-                } else {
-                    insideQuote = false;
-                }
-            } else {
-                cell += char;
-            }
-            continue;
-        }
-
-        if (char === '"') {
-            insideQuote = true;
-            continue;
-        }
-
-        if (char === ",") {
-            row.push(cell);
-            cell = "";
-            continue;
-        }
-
-        if (char === "\r") {
-            continue;
-        }
-
-        if (char === "\n") {
-            row.push(cell);
-            rows.push(row);
-            row = [];
-            cell = "";
-            continue;
-        }
-
-        cell += char;
-    }
-
-    if (cell.length || row.length) {
-        row.push(cell);
-        rows.push(row);
-    }
-
-    return rows;
 }
 
 /** Разбирает значение рейтинга (звёзды 1-5 или проценты 0-100) в число звёзд. */

@@ -6,7 +6,7 @@
     <title>Личный кабинет — Bonus Navigator</title>
     <meta name="theme-color" content="#0b111d">
     <meta name="description" content="Bonus Navigator — личный кабинет и аналитика продаж">
-    <link rel="manifest" href="./public/manifest.json?v=1.3.3">
+    <link rel="manifest" href="./public/manifest.json?v=1.4.0">
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%232d7dff' width='192' height='192'/><text x='96' y='130' font-size='100' font-weight='bold' fill='white' text-anchor='middle'>BN</text></svg>">
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%232d7dff' width='192' height='192'/><text x='96' y='130' font-size='100' font-weight='bold' fill='white' text-anchor='middle'>BN</text></svg>">
     <script>
@@ -24,7 +24,7 @@
             window.location.replace("index.html");
         }
     </script>
-    <link rel="stylesheet" href="assets/styles/style.css?v=1.3.3">
+    <link rel="stylesheet" href="assets/styles/style.css?v=1.4.0">
     <style>
         .dashboard-shell{max-width:1180px;margin:0 auto;padding:18px 16px 96px}
         .dashboard-header{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:15px 18px;border:1px solid var(--border);border-radius:0 0 18px 18px;background:linear-gradient(135deg,rgba(10,14,24,.96),rgba(18,24,38,.92));backdrop-filter:blur(16px);box-shadow:var(--shadow)}
@@ -75,6 +75,10 @@
         .progress{height:7px;overflow:hidden;border-radius:999px;background:rgba(255,255,255,.07)}
         .progress span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--primary),var(--primary-light))}
         .sales-panel{padding-bottom:8px}
+        .insight-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+        .insight-card{padding:14px;border:1px solid var(--border);border-radius:15px;background:rgba(255,255,255,.035)}
+        .insight-card span{display:block;color:var(--muted);font-size:.7rem}
+        .insight-card strong{display:block;margin-top:7px;font-size:.95rem;line-height:1.3}
         .sale-list{display:grid}
         .sale-row{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:12px;align-items:center;padding:14px 0;border-top:1px solid rgba(255,255,255,.08)}
         .sale-time{color:var(--muted);font-size:.76rem}
@@ -120,8 +124,14 @@
         .sales-filter-row{display:grid;grid-template-columns:minmax(180px,1fr) minmax(150px,.55fr) minmax(150px,.55fr);gap:10px;margin-bottom:14px}
         .sales-filter-field{display:grid;gap:6px;min-width:0}
         .sales-filter-field>span{color:var(--muted);font-size:.72rem;font-weight:700}
+        .sales-period-total{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:14px;padding:15px 0 2px;border-top:1px solid var(--border)}
+        .sales-period-total>span{color:var(--muted);font-size:.78rem}
+        .sales-period-total strong{font-size:1.15rem;text-align:right}
+        .sales-period-total strong>span{color:var(--text)}
+        .sales-period-total small{display:block;margin-top:3px;color:var(--primary-light);font-size:.68rem;font-weight:600}
+        @media(max-width:720px){.insight-grid{grid-template-columns:1fr 1fr}}
         @media(max-width:620px){.sales-filter-row{grid-template-columns:1fr}}
-        @media(max-width:560px){.dashboard-shell{padding:0 12px 96px}.dashboard-header{margin:0 -12px;padding:12px;border-radius:0 0 18px 18px}.dashboard-avatar{display:none}.period-row{align-items:flex-end}.month-control span{display:none}.hero-card{padding:20px}.metric-grid{grid-template-columns:1fr 1fr}.metric-card:first-child{grid-column:1/-1}.panel{padding:15px}.chart{gap:5px;height:150px}.chart-column span{font-size:.59rem}.sale-row{grid-template-columns:44px minmax(0,1fr) auto;gap:8px}.profile-card{grid-template-columns:1fr;align-items:stretch;gap:18px}.region-select{max-width:none;width:100%}.sales-history-page{padding-top:max(20px,env(safe-area-inset-top))}.sales-page-header{padding:8px 2px 4px}}
+        @media(max-width:560px){.dashboard-shell{padding:0 12px 96px}.dashboard-header{margin:0 -12px;padding:12px;border-radius:0 0 18px 18px}.dashboard-avatar{display:none}.period-row{align-items:flex-end}.month-control span{display:none}.hero-card{padding:20px}.metric-grid{grid-template-columns:1fr 1fr}.metric-card:first-child{grid-column:1/-1}.panel{padding:15px}.chart{gap:5px;height:150px}.chart-column span{font-size:.59rem}.sale-row{grid-template-columns:44px minmax(0,1fr) auto;gap:8px}.profile-card{grid-template-columns:1fr;align-items:stretch;gap:18px}.region-select{max-width:none;width:100%}.sales-history-page{padding-top:max(20px,env(safe-area-inset-top))}.sales-page-header{padding:8px 2px 4px}.sales-period-total{align-items:flex-end}.sales-period-total>span{max-width:50%}}
         @media(pointer:coarse){.theme-range{height:28px;background-size:100% 8px;background-position:center;background-repeat:no-repeat}}
     </style>
 </head>
@@ -206,13 +216,13 @@
 
             <section class="panel sales-panel">
                 <div class="panel-head">
-                    <div><h3 class="panel-title">Последние продажи</h3><p id="recentSalesPeriod" class="panel-subtitle">За выбранный месяц</p></div>
-                    <button id="openSalesList" class="text-button" type="button">Упрощённый список →</button>
+                    <div><h3 class="panel-title">Итоги месяца</h3><p id="insightsPeriod" class="panel-subtitle">Полезные показатели выбранного месяца</p></div>
                 </div>
-                <div id="recentSales" class="sale-list">
-                    <article class="sale-row"><time class="sale-time">14:32</time><div class="sale-main"><strong>Haier HCR5919ENMB</strong><span>Артикул #628340 · Телевизоры</span></div><div class="sale-result"><strong>+12 000 ₸</strong><span>399 990 ₸ × 1</span></div></article>
-                    <article class="sale-row"><time class="sale-time">12:18</time><div class="sale-main"><strong>Haier HHY-C32RVB</strong><span>Артикул #606539 · Варочные панели</span></div><div class="sale-result"><strong>+4 000 ₸</strong><span>99 990 ₸ × 2</span></div></article>
-                    <article class="sale-row"><time class="sale-time">10:46</time><div class="sale-main"><strong>Candy CMXBTG218B</strong><span>Артикул #626976 · Микроволновые печи</span></div><div class="sale-result"><strong>+5 800 ₸</strong><span>144 990 ₸ × 1</span></div></article>
+                <div class="insight-grid" aria-label="Дополнительная аналитика месяца">
+                    <div class="insight-card"><span>Лучший день</span><strong id="bestSalesDay">—</strong></div>
+                    <div class="insight-card"><span>Средний чек</span><strong id="averageSaleValue">0 ₸</strong></div>
+                    <div class="insight-card"><span>Максимальное начисление</span><strong id="largestCommission">0 ₸</strong></div>
+                    <div class="insight-card"><span>Возвраты</span><strong id="returnsTotal">0</strong></div>
                 </div>
             </section>
 
@@ -246,7 +256,7 @@
                 </section>
 
                 <section class="panel transfer-panel profile-update" aria-labelledby="appVersionTitle">
-                    <div class="profile-update-copy"><strong id="appVersionTitle">Версия приложения</strong><span id="appVersionStatus" class="profile-version">Фронт 1.3.3</span><span id="appUpdateStatus" class="profile-update-status" aria-live="polite"></span></div>
+                    <div class="profile-update-copy"><strong id="appVersionTitle">Версия приложения</strong><span id="appVersionStatus" class="profile-version">Фронт 1.4.0</span><span id="appUpdateStatus" class="profile-update-status" aria-live="polite"></span></div>
                     <button id="updateAppBtn" type="button" class="btn-primary button-with-icon hidden"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>Обновиться</button>
                 </section>
             </div>
@@ -265,6 +275,10 @@
                 <label class="sales-filter-field"><span>По дату</span><input id="salesDateTo" class="region-select" style="width:100%;max-width:none" type="date" aria-label="Конечная дата продаж"></label>
             </div>
             <div id="allSales" class="sale-list"></div>
+            <div class="sales-period-total" aria-live="polite">
+                <span id="salesPeriodLabel">Сумма продаж за выбранный период</span>
+                <strong><span id="salesPeriodTotal">0 ₸</span><small id="salesPeriodOperations">0 операций</small></strong>
+            </div>
         </section>
     </section>
 
@@ -306,6 +320,6 @@
         <button id="navOverview" class="active" type="button"><span class="nav-icon"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span><span>Обзор</span></button>
         <button id="navSales" type="button"><span class="nav-icon"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><circle cx="3" cy="6" r="1"/><circle cx="3" cy="12" r="1"/><circle cx="3" cy="18" r="1"/></svg></span><span>Продажи</span></button>
     </nav>
-    <script type="module" src="assets/scripts/sales/dashboard.js?v=1.3.3"></script>
+    <script type="module" src="assets/scripts/sales/dashboard.js?v=1.4.0"></script>
 </body>
 </html>

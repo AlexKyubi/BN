@@ -8,7 +8,7 @@
  * - utils.js                мелкие переиспользуемые хелперы (строки, CSV, числа)
  * - quick-return.js         сохранение/восстановление состояния при быстром возврате
  * - auth/                   авторизация на устройстве и проверка ссылки Google Sheets на сервере
- * - catalog/                построение товаров из CSV и загрузка каталога
+ * - catalog/                загрузка справочника и построение карточек с месячными процентами
  * - regions/                справочник регионов/городов личного кабинета
  * - stock/                  клиент прокси остатков, клиентский кеш, модалка с деталями остатков
  * - profile/                личный кабинет (регион/город, фильтры, статус)
@@ -35,7 +35,7 @@ import {
     verifyCredentials,
 } from "./auth/device-auth.js";
 import { validateSheetUrlWithServer } from "./auth/sheet-auth.js";
-import { loadProducts, rebuildItemsFromSourceRows } from "./catalog/csv-source.js";
+import { loadProducts, rebuildItemsFromCatalog } from "./catalog/catalog-source.js";
 import { closeStockInfoModal } from "./stock/stock-info-modal.js";
 import { syncCurrentRegionStock } from "./stock/stock-sync.js";
 import { initProfileCabinet } from "./profile/profile-cabinet.js";
@@ -78,7 +78,7 @@ async function startApp({ fastReturn = false } = {}) {
         renderCards();
     }
 
-    // Возврат из кабинета восстанавливает тот же DOM-снимок без повторной загрузки CSV
+    // Возврат из кабинета восстанавливает тот же DOM-снимок без повторной загрузки каталога
     // и остатков. Обычный запуск/перезагрузка по-прежнему получает свежие данные.
     if (fastReturn && restored) {
         saveCatalogUiState();
@@ -124,7 +124,7 @@ function resetAllFilters() {
     }
 
     state.activeMonthColumn = DEFAULT_MONTH_COLUMN_INDEX;
-    rebuildItemsFromSourceRows();
+    rebuildItemsFromCatalog();
     syncMonthSelector();
     updateCategoryButtons();
     updateStarsButtons();
@@ -280,7 +280,7 @@ function bindEvents() {
                 dom.search.value = "";
             }
             state.searchQuery = "";
-            rebuildItemsFromSourceRows();
+            rebuildItemsFromCatalog();
             syncMonthSelector();
             closeMonthDrawer();
             saveCatalogUiState();

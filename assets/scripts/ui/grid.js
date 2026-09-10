@@ -204,16 +204,20 @@ function createCard(item, stockRecord = null) {
 function updateSummary(total) {
     const filters = [];
 
+    if (state.searchQuery) {
+        filters.push(`Поиск: «${state.searchQuery}»`);
+        filters.push("Остальные фильтры временно не применяются");
+        dom.resultCount.textContent = `Найдено товаров: ${total}`;
+        dom.activeFilters.textContent = filters.join(" • ");
+        return;
+    }
+
     if (state.activeCategory !== CATEGORY_ALL) {
         filters.push(`Категория: ${state.activeCategory}`);
     }
 
     if (state.activeStars) {
         filters.push(`Звезды: ${state.activeStars}%`);
-    }
-
-    if (state.searchQuery) {
-        filters.push(`Поиск: «${state.searchQuery}»`);
     }
 
     if (state.priceSort === "desc") {
@@ -243,6 +247,13 @@ function filterItems(stockItems) {
     return state.items.filter((item) => {
         const stockRecord = stockItems[item.article] || null;
 
+        if (state.searchQuery) {
+            const query = state.searchQuery.toLowerCase();
+            return item.title.toLowerCase().includes(query)
+                || item.article.toLowerCase().includes(query)
+                || item.category.toLowerCase().includes(query);
+        }
+
         if (state.hideZeroPrice && stockRecord && Number(stockRecord.price || 0) <= 0) {
             return false;
         }
@@ -271,13 +282,6 @@ function filterItems(stockItems) {
             } else if (Number(item.stars) !== Number(state.activeStars)) {
                 return false;
             }
-        }
-
-        if (state.searchQuery) {
-            const query = state.searchQuery.toLowerCase();
-            return item.title.toLowerCase().includes(query)
-                || item.article.toLowerCase().includes(query)
-                || item.category.toLowerCase().includes(query);
         }
 
         return true;

@@ -97,6 +97,35 @@ function renderSalesList() {
             && (!dateTo || localDate <= dateTo);
     }).sort((a, b) => Date.parse(b.soldAt) - Date.parse(a.soldAt));
     $("allSales").innerHTML = visible.length ? visible.map(saleMarkup).join("") : `<p class="panel-subtitle" style="padding:18px 0">Продажи не найдены.</p>`;
+    const activeVisible = visible.filter((sale) => !sale.returned);
+    const total = activeVisible.reduce((sum, sale) => sum + sale.price * sale.quantity, 0);
+    let periodLabel = "за выбранный период";
+    if (dateFrom && dateTo) {
+        periodLabel = dateFrom === dateTo
+            ? `за ${new Date(`${dateFrom}T00:00:00`).toLocaleDateString("ru-RU")}`
+            : `с ${new Date(`${dateFrom}T00:00:00`).toLocaleDateString("ru-RU")} по ${new Date(`${dateTo}T00:00:00`).toLocaleDateString("ru-RU")}`;
+    }
+    $("salesPeriodLabel").textContent = `Сумма продаж ${periodLabel}`;
+    $("salesPeriodTotal").textContent = formatMoney(total);
+    $("salesPeriodOperations").textContent = `${activeVisible.length} операций`;
+}
+
+function renderMonthlyInsights(monthSales) {
+    const dailySales = new Map();
+    for (const sale of monthSales) {
+        const date = new Date(sale.soldAt);
+        const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+        dailySales.set(key, (dailySales.get(key) || 0) + sale.price * sale.quantity);
+    }
+    const best = [...dailySales].sort((a, b) => b[1] - a[1])[0];
+    const bestDate = best ? new Date(...best[0].split("-").map(Number)) : null;
+    const salesTotal = monthSales.reduce((sum, sale) => sum + sale.price * sale.quantity, 0);
+    const largestCommission = Math.max(0, ...monthSales.map((sale) => Number(sale.commission) || 0));
+    const returned = sales.filter((sale) => sale.month === selectedMonth && sale.returned).length;
+    $("bestSalesDay").textContent = bestDate ? `${bestDate.toLocaleDateString("ru-RU", { day: "2-digit", month: "short" })} · ${formatMoney(best[1])}` : "—";
+    $("averageSaleValue").textContent = formatMoney(monthSales.length ? salesTotal / monthSales.length : 0);
+    $("largestCommission").textContent = formatMoney(largestCommission);
+    $("returnsTotal").textContent = money.format(returned);
 }
 
 function handleSalesDateFilter(changedId) {
@@ -124,7 +153,7 @@ function render() {
     $("previousMonth").disabled = selectedMonth <= EARLIEST_MONTH;
     $("nextMonth").disabled = selectedMonth >= CURRENT_MONTH;
     $("monthShortTitle").textContent = monthShortFormatter.format(monthDate(selectedMonth));
-    $("recentSalesPeriod").textContent = `За ${title.toLocaleLowerCase("ru-RU")}`;
+    $("insightsPeriod").textContent = `За ${title.toLocaleLowerCase("ru-RU")}`;
     $("commissionTotal").textContent = formatMoney(commission);
     $("salesTotal").textContent = formatMoney(salesTotal);
     $("unitsTotal").textContent = money.format(units);
@@ -133,8 +162,7 @@ function render() {
     $("monthComparison").textContent = previousCommission ? `${commission >= previousCommission ? "↑" : "↓"} ${Math.abs(Math.round((commission - previousCommission) / previousCommission * 100))}% к прошлому месяцу` : "Нет данных для сравнения";
     renderChart(monthSales);
     renderCategories(monthSales);
-    const recent = monthSales.sort((a, b) => Date.parse(b.soldAt) - Date.parse(a.soldAt)).slice(0, 5);
-    $("recentSales").innerHTML = recent.length ? recent.map(saleMarkup).join("") : `<p class="panel-subtitle" style="padding:14px 0">В этом месяце продаж пока нет.</p>`;
+    renderMonthlyInsights(monthSales);
     renderSalesList();
 }
 
@@ -312,7 +340,6 @@ function bindEvents() {
     $("navCatalog").addEventListener("click", returnToCatalog);
     $("navOverview").addEventListener("click", () => showPage("overview"));
     $("navSales").addEventListener("click", () => showPage("sales"));
-    $("openSalesList").addEventListener("click", () => showPage("sales"));
     $("closeSalesList").addEventListener("click", () => showPage("overview"));
     $("salesArticleSearch").addEventListener("input", (event) => {
         const normalized = normalizeCatalogSearchInput(event.target.value);
@@ -322,7 +349,7 @@ function bindEvents() {
     });
     $("salesDateFrom").addEventListener("input", () => handleSalesDateFilter("salesDateFrom"));
     $("salesDateTo").addEventListener("input", () => handleSalesDateFilter("salesDateTo"));
-    for (const id of ["recentSales", "allSales"]) $(id).addEventListener("click", (event) => { const row = event.target.closest("[data-sale-id]"); if (row) openEditor(row.dataset.saleId); });
+    $("allSales").addEventListener("click", (event) => { const row = event.target.closest("[data-sale-id]"); if (row) openEditor(row.dataset.saleId); });
     $("closeEditSale").addEventListener("click", closeEditor); $("cancelEditSale").addEventListener("click", closeEditor); $("editSaleBackdrop").addEventListener("click", closeEditor);
     $("deleteSaleBtn").addEventListener("click", () => void handleDeleteSale());
     $("editSaleForm").addEventListener("submit", async (event) => {
@@ -373,14 +400,14 @@ async function init() {
     $("salesArticleSearch").value = normalizeCatalogSearchInput(readLocalValue(SALES_ARTICLE_FILTER_KEY));
     const savedDateFrom = readLocalValue(SALES_DATE_FROM_FILTER_KEY);
     const savedDateTo = readLocalValue(SALES_DATE_TO_FILTER_KEY);
-    $("salesDateFrom").value = /^\d{4}-\d{2}-\d{2}$/.test(savedDateFrom) ? savedDateFrom : "";
-    $("salesDateTo").value = /^\d{4}-\d{2}-\d{2}$/.test(savedDateTo) ? savedDateTo : "";
+    $("salesDateFrom").value = /^\d{4}-\d{2}-\d{2}$/.test(savedDateFrom) ? savedDateFrom : CURRENT_LOCAL_DATE;
+    $("salesDateTo").value = /^\d{4}-\d{2}-\d{2}$/.test(savedDateTo) ? savedDateTo : CURRENT_LOCAL_DATE;
     for (const input of [$("salesDateFrom"), $("salesDateTo")]) {
         input.min = RETENTION_START_DATE;
         input.max = CURRENT_LOCAL_DATE;
     }
-    if ($("salesDateFrom").value < RETENTION_START_DATE || $("salesDateFrom").value > CURRENT_LOCAL_DATE) $("salesDateFrom").value = "";
-    if ($("salesDateTo").value < RETENTION_START_DATE || $("salesDateTo").value > CURRENT_LOCAL_DATE) $("salesDateTo").value = "";
+    if ($("salesDateFrom").value < RETENTION_START_DATE || $("salesDateFrom").value > CURRENT_LOCAL_DATE) $("salesDateFrom").value = CURRENT_LOCAL_DATE;
+    if ($("salesDateTo").value < RETENTION_START_DATE || $("salesDateTo").value > CURRENT_LOCAL_DATE) $("salesDateTo").value = CURRENT_LOCAL_DATE;
     if ($("salesDateFrom").value && $("salesDateTo").value && $("salesDateFrom").value > $("salesDateTo").value) $("salesDateTo").value = $("salesDateFrom").value;
     writeLocalValue(SALES_DATE_FROM_FILTER_KEY, $("salesDateFrom").value);
     writeLocalValue(SALES_DATE_TO_FILTER_KEY, $("salesDateTo").value);
