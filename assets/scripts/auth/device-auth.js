@@ -13,7 +13,7 @@ export function isAuthorizedOnDevice() {
     try {
         return localStorage.getItem(AUTH_STORAGE_KEY) === "1"
             && Boolean(loadSavedUserName())
-            && Boolean(getEffectiveSheetUrl());
+            && Boolean(loadSavedSheetUrl());
     } catch (error) {
         console.warn("Не удалось прочитать статус авторизации:", error);
         return false;
@@ -53,11 +53,6 @@ export function loadSavedSheetUrl() {
     }
 }
 
-/** Возвращает действующую ссылку на таблицу — только ту, что уже подтверждена сервером и сохранена ранее. */
-export function getEffectiveSheetUrl() {
-    return loadSavedSheetUrl();
-}
-
 /** Читает сохранённое ФИО пользователя. */
 export function loadSavedUserName() {
     try {
@@ -69,7 +64,7 @@ export function loadSavedUserName() {
 }
 
 /** Проверяет, что строка соответствует формату "Фамилия Имя" (кириллица/латиница). */
-export function isValidFullName(value) {
+function isValidFullName(value) {
     const normalized = normalizeFullName(value);
     return /^[A-Za-zА-Яа-яЁёІіЇїЄєҚқҢңҒғҮүҰұӨөҺһ-]+\s+[A-Za-zА-Яа-яЁёІіЇїЄєҚқҢңҒғҮүҰұӨөҺһ-]+(?:\s+[A-Za-zА-Яа-яЁёІіЇїЄєҚқҢңҒғҮүҰұӨөҺһ-]+)*$/.test(normalized);
 }

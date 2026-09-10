@@ -1,4 +1,4 @@
-export function downloadBlob(blob, filename) {
+function downloadBlob(blob, filename) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;

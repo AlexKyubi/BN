@@ -32,6 +32,8 @@ trash/
 bonus-navigator-backup-*.json
 bonus-navigator-sales-*.xlsx
 report *.xlsx
+bn-backend-*.zip
+bn-frontend-*.zip
 
 # OS
 .DS_Store

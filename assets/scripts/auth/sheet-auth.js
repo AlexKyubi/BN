@@ -7,12 +7,11 @@ import { saveAccessToken } from "./access-token.js";
  * клиент её не знает и не хранит — иначе она была бы видна любому в исходном коде страницы.
  */
 
-/** Строит URL эндпоинта /auth/validate с переданной ссылкой на таблицу. */
-function buildAuthValidateUrl(sheetUrl) {
+/** Строит URL эндпоинта /auth/validate без помещения ключа доступа в адресную строку. */
+function buildAuthValidateUrl() {
     const configuredBase = String(STOCK_CONFIG.proxyBase || DEFAULT_PROXY_BASE).trim();
     const normalizedBase = configuredBase.endsWith("/") ? configuredBase.slice(0, -1) : configuredBase;
     const url = new URL(`${normalizedBase}${AUTH_VALIDATE_PATH}`, window.location.origin);
-    url.searchParams.set("sheetUrl", String(sheetUrl || "").trim());
     return url.toString();
 }
 
@@ -27,13 +26,14 @@ export async function validateSheetUrlWithServer(sheetUrl) {
     const timeoutId = AUTH_VALIDATE_TIMEOUT_MS > 0
         ? setTimeout(() => controller.abort(), AUTH_VALIDATE_TIMEOUT_MS)
         : null;
-    const requestUrl = buildAuthValidateUrl(normalizedSheetUrl);
+    const requestUrl = buildAuthValidateUrl();
 
     let response;
     try {
         response = await fetch(requestUrl, {
-            method: "GET",
-            headers: { Accept: "application/json" },
+            method: "POST",
+            headers: { Accept: "application/json", "Content-Type": "application/json" },
+            body: JSON.stringify({ sheetUrl: normalizedSheetUrl }),
             signal: timeoutId ? controller.signal : undefined,
         });
     } catch (error) {

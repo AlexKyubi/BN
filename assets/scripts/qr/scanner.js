@@ -95,7 +95,7 @@ function scanQrCode() {
 }
 
 /** Запрашивает доступ к камере и запускает сканирование QR-кода. */
-export async function startQrScanner() {
+async function startQrScanner() {
     if (!isMobileDevice()) {
         alert("QR сканер доступен только на мобильных устройствах.");
         return;

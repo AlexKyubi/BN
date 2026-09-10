@@ -84,7 +84,7 @@ export function fillProfileRegionSelect(regionNames) {
 }
 
 /** Заполняет select города списком магазинов выбранного региона. */
-export function fillProfileCitySelect(cities, preferredCityId = "") {
+function fillProfileCitySelect(cities, preferredCityId = "") {
     if (!dom.profileCity) {
         return;
     }

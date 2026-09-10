@@ -1,6 +1,8 @@
 const DB_NAME = "bonus-navigator-sales";
 const STORE_NAME = "sales";
 const DB_VERSION = 1;
+const MAX_PRICE = 1_000_000_000_000;
+const MAX_QUANTITY = 10_000;
 let prunedYear = null;
 
 function retainedYear() {
@@ -50,26 +52,35 @@ function normalizeSale(raw) {
     const price = Number(raw?.price);
     const quantity = Number(raw?.quantity);
     const percent = Number(raw?.percent);
-    const article = String(raw?.article || "").replace(/^#/, "").trim();
+    const id = typeof raw?.id === "string" ? raw.id.trim() : "";
+    const article = String(raw?.article || "").replace(/^#/, "").trim().toLocaleUpperCase("en-US");
+    const title = String(raw?.title || raw?.article || "").replace(/[\u0000-\u001F\u007F]/g, " ").trim();
+    const category = String(raw?.category || "Без категории").replace(/[\u0000-\u001F\u007F]/g, " ").trim();
     const createdAt = raw?.createdAt ? new Date(raw.createdAt) : new Date();
     const updatedAt = raw?.updatedAt ? new Date(raw.updatedAt) : new Date();
-    if (!raw?.id || !article || Number.isNaN(soldAt.getTime())
-        || !Number.isFinite(price) || price < 0
-        || !Number.isInteger(quantity) || quantity < 1
+    const now = Date.now();
+    const commission = price * quantity * percent / 100;
+    if (!id || id.length > 100 || !/^[A-Z0-9-]{1,80}$/.test(article) || !title || !category
+        || title.length > 300 || category.length > 150 || Number.isNaN(soldAt.getTime()) || soldAt.getTime() > now + 300_000
+        || !Number.isFinite(price) || price < 0 || price > MAX_PRICE
+        || !Number.isInteger(quantity) || quantity < 1 || quantity > MAX_QUANTITY
         || !Number.isFinite(percent) || percent < 0 || percent > 100
-        || Number.isNaN(createdAt.getTime()) || Number.isNaN(updatedAt.getTime())) {
+        || !Number.isFinite(commission)
+        || Number.isNaN(createdAt.getTime()) || Number.isNaN(updatedAt.getTime())
+        || createdAt.getTime() > now + 86_400_000 || updatedAt.getTime() > now + 86_400_000
+        || (raw.returned !== undefined && typeof raw.returned !== "boolean")) {
         return null;
     }
     const month = `${soldAt.getFullYear()}-${String(soldAt.getMonth() + 1).padStart(2, "0")}`;
     return {
-        id: String(raw.id).slice(0, 100),
-        article: article.slice(0, 80),
-        title: String(raw.title || raw.article).slice(0, 300),
-        category: String(raw.category || "Без категории").slice(0, 150),
+        id,
+        article,
+        title,
+        category,
         price: Math.round(price * 100) / 100,
         quantity,
         percent: Math.round(percent * 100) / 100,
-        commission: Math.round(price * quantity * percent) / 100,
+        commission: Math.round(commission * 100) / 100,
         soldAt: soldAt.toISOString(),
         month,
         rateMonthLabel: String(raw.rateMonthLabel || "").slice(0, 100),
