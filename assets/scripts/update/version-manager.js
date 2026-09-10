@@ -181,13 +181,13 @@ async function clearApplicationCaches() {
         .map((name) => caches.delete(name)));
 }
 
-async function requestServiceWorkerUpdate() {
+async function resetApplicationServiceWorker() {
     if (!("serviceWorker" in navigator)) {
         return;
     }
     const registration = await navigator.serviceWorker.getRegistration();
     if (registration) {
-        await registration.update();
+        await registration.unregister();
     }
 }
 
@@ -210,7 +210,7 @@ async function applyAvailableUpdate() {
 
     const maintenanceResults = await Promise.allSettled([
         clearApplicationCaches(),
-        requestServiceWorkerUpdate(),
+        resetApplicationServiceWorker(),
     ]);
     for (const result of maintenanceResults) {
         if (result.status === "rejected") {
@@ -221,7 +221,10 @@ async function applyAvailableUpdate() {
     try {
         const url = new URL(window.location.href);
         url.searchParams.set("release", latestRelease.id);
-        window.location.replace(url.toString());
+        // Уникальный параметр принуждает desktop-браузеры выполнить настоящую
+        // навигацию, даже если release уже присутствует в адресной строке.
+        url.searchParams.set("update", Date.now().toString());
+        window.location.assign(url.toString());
     } catch (error) {
         console.error("Не удалось перезагрузить приложение:", error);
         setStatus("Не удалось обновить страницу. Попробуйте ещё раз.", "error");
