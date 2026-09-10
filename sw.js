@@ -1,11 +1,11 @@
-const CACHE_NAME = 'bonus-navigator-v16';
+const CACHE_NAME = 'bonus-navigator-v17';
 const urlsToCache = [
   './',
   './index.html',
-  './assets/styles/style.css?v=1.4.1',
-  './assets/scripts/app.js?v=1.4.1',
+  './assets/styles/style.css?v=1.4.2',
+  './assets/scripts/app.js?v=1.4.2',
   './dashboard.html',
-  './public/manifest.json?v=1.4.1'
+  './public/manifest.json?v=1.4.2'
 ];
 
 // Установка Service Worker

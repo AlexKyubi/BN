@@ -98,15 +98,17 @@ function renderSalesList() {
     }).sort((a, b) => Date.parse(b.soldAt) - Date.parse(a.soldAt));
     $("allSales").innerHTML = visible.length ? visible.map(saleMarkup).join("") : `<p class="panel-subtitle" style="padding:18px 0">Продажи не найдены.</p>`;
     const activeVisible = visible.filter((sale) => !sale.returned);
-    const total = activeVisible.reduce((sum, sale) => sum + sale.price * sale.quantity, 0);
+    const commissionTotal = activeVisible.reduce((sum, sale) => sum + sale.commission, 0);
+    const turnoverTotal = activeVisible.reduce((sum, sale) => sum + sale.price * sale.quantity, 0);
     let periodLabel = "за выбранный период";
     if (dateFrom && dateTo) {
         periodLabel = dateFrom === dateTo
             ? `за ${new Date(`${dateFrom}T00:00:00`).toLocaleDateString("ru-RU")}`
             : `с ${new Date(`${dateFrom}T00:00:00`).toLocaleDateString("ru-RU")} по ${new Date(`${dateTo}T00:00:00`).toLocaleDateString("ru-RU")}`;
     }
-    $("salesPeriodLabel").textContent = `Сумма продаж ${periodLabel}`;
-    $("salesPeriodTotal").textContent = formatMoney(total);
+    $("salesPeriodLabel").textContent = `Итоги ${periodLabel}`;
+    $("salesPeriodTotal").textContent = `Начисления: ${formatMoney(commissionTotal)}`;
+    $("salesPeriodTurnover").textContent = `Товарооборот: ${formatMoney(turnoverTotal)}`;
     $("salesPeriodOperations").textContent = `${activeVisible.length} операций`;
 }
 
