@@ -1,8 +1,8 @@
 import { loadSavedUserName } from "../auth/device-auth.js";
 import { state } from "../state.js";
-import { ACTIVE_MONTH_INDEX_STORAGE_KEY, ACTIVE_MONTH_LABEL_STORAGE_KEY, DASHBOARD_FAST_RETURN_KEY, DASHBOARD_RETURN_MARKER_KEY, HIDE_NO_STOCK_STORAGE_KEY, HIDE_ZERO_PRICE_STORAGE_KEY } from "../config.js";
+import { ACTIVE_MONTH_INDEX_STORAGE_KEY, ACTIVE_MONTH_LABEL_STORAGE_KEY, DASHBOARD_FAST_RETURN_KEY, DASHBOARD_RETURN_MARKER_KEY } from "../config.js";
 import { buildRegionCityModel, fillProfileRegionSelect, getSelectedCityContext, loadProfileSelection, loadRegionRows, saveProfileSelection, syncProfileCitySelect } from "../regions/regions.js";
-import { downloadRegionStockReport, fetchRegionStockSnapshot } from "../stock/stock-api.js";
+import { downloadRegionStockReport, fetchCatalog, fetchRegionStockSnapshot } from "../stock/stock-api.js";
 import { askReportPassword, initReportPasswordModal } from "../ui/password-prompt.js";
 import { createSalesWorkbook } from "./xlsx-report.js";
 import { shareOrDownload } from "./file-share.js";
@@ -10,6 +10,7 @@ import { deleteSale, exportSalesBackup, getAllSales, importSalesBackup, saveSale
 import { initVersionManager } from "../update/version-manager.js";
 import { initThemeManager } from "../theme/theme-manager.js";
 import { normalizeCatalogSearchInput } from "../utils.js";
+import { normalizeCatalogCategory } from "../catalog/category-names.js";
 
 const $ = (id) => document.getElementById(id);
 const money = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 2 });
@@ -73,8 +74,9 @@ function renderChart(monthSales) {
     for (const sale of monthSales) { const day = new Date(sale.soldAt).getDate(); totals.set(day, (totals.get(day) || 0) + sale.commission); }
     const daysInMonth = new Date(monthDate(selectedMonth).getFullYear(), monthDate(selectedMonth).getMonth() + 1, 0).getDate();
     const max = Math.max(1, ...totals.values());
-    const sampled = Array.from({ length: daysInMonth }, (_, i) => i + 1).filter((day) => day === 1 || day === daysInMonth || day % Math.max(1, Math.ceil(daysInMonth / 9)) === 0);
-    $("salesChart").innerHTML = sampled.map((day) => `<div class="chart-column"><div class="bar" style="height:${Math.max(5, ((totals.get(day) || 0) / max) * 100)}%"></div><span>${day}</span></div>`).join("");
+    const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+    const currentDay = selectedMonth === CURRENT_MONTH ? today.getDate() : 0;
+    $("salesChart").innerHTML = `<div class="chart-track">${days.map((day) => `<div class="chart-column${day === currentDay ? " is-today" : ""}" title="${day}: ${formatMoney(totals.get(day) || 0)}"><div class="bar" style="height:${Math.max(5, ((totals.get(day) || 0) / max) * 100)}%"></div><span>${day}</span></div>`).join("")}</div>`;
 }
 
 function renderCategories(monthSales) {
@@ -83,6 +85,37 @@ function renderCategories(monthSales) {
     const total = [...totals.values()].reduce((sum, value) => sum + value, 0);
     const rows = [...totals].sort((a, b) => b[1] - a[1]);
     $("categoryAnalytics").innerHTML = rows.length ? rows.map(([category, value]) => { const percent = total ? Math.round(value / total * 100) : 0; return `<div class="category-row"><div class="category-top"><span>${escapeText(category)}</span><strong>${formatMoney(value)} · ${percent}%</strong></div><div class="progress"><span style="width:${percent}%"></span></div></div>`; }).join("") : `<p class="panel-subtitle">В этом месяце продаж пока нет.</p>`;
+}
+
+async function synchronizeSaleCategories() {
+    const categoryByArticle = new Map();
+    try {
+        const catalog = await fetchCatalog();
+        for (const product of catalog.products || []) {
+            categoryByArticle.set(String(product?.article || "").trim(), normalizeCatalogCategory(product?.category));
+        }
+    } catch (error) {
+        console.warn("Не удалось сверить категории продаж со справочником:", error);
+    }
+
+    let changed = false;
+    for (const sale of sales) {
+        const category = categoryByArticle.get(String(sale.article || "").trim()) || normalizeCatalogCategory(sale.category);
+        if (category === sale.category) continue;
+        try {
+            await saveSale({ ...sale, category });
+            sale.category = category;
+            changed = true;
+        } catch (error) {
+            console.warn("Не удалось обновить категорию сохранённой продажи:", error);
+        }
+    }
+    if (changed) sales = await getAllSales();
+}
+
+function showNativeDatePicker(input) {
+    if (typeof input?.showPicker !== "function") return;
+    try { input.showPicker(); } catch { /* В неподдерживаемом браузере остаётся штатная кнопка календаря. */ }
 }
 
 function renderSalesList() {
@@ -351,6 +384,8 @@ function bindEvents() {
     });
     $("salesDateFrom").addEventListener("input", () => handleSalesDateFilter("salesDateFrom"));
     $("salesDateTo").addEventListener("input", () => handleSalesDateFilter("salesDateTo"));
+    $("salesDateFrom").addEventListener("click", (event) => showNativeDatePicker(event.currentTarget));
+    $("salesDateTo").addEventListener("click", (event) => showNativeDatePicker(event.currentTarget));
     $("allSales").addEventListener("click", (event) => { const row = event.target.closest("[data-sale-id]"); if (row) openEditor(row.dataset.saleId); });
     $("closeEditSale").addEventListener("click", closeEditor); $("cancelEditSale").addEventListener("click", closeEditor); $("editSaleBackdrop").addEventListener("click", closeEditor);
     $("deleteSaleBtn").addEventListener("click", () => void handleDeleteSale());
@@ -385,8 +420,6 @@ function bindEvents() {
         saveProfileSelection($("profileRegion").value, $("profileCity").value);
         void syncSelectedRegionStock();
     });
-    $("hideZeroPrice").addEventListener("change", () => { try { localStorage.setItem(HIDE_ZERO_PRICE_STORAGE_KEY, $("hideZeroPrice").checked ? "1" : "0"); } catch (error) { console.warn("Не удалось сохранить фильтр цены:", error); } });
-    $("hideNoStock").addEventListener("change", () => { try { localStorage.setItem(HIDE_NO_STOCK_STORAGE_KEY, $("hideNoStock").checked ? "1" : "0"); } catch (error) { console.warn("Не удалось сохранить фильтр остатков:", error); } });
     $("downloadStockReportBtn").addEventListener("click", () => void downloadStockReport());
     $("shareReport").addEventListener("click", () => void buildReport());
     $("exportData").addEventListener("click", async () => { try { const text = await exportSalesBackup(); await shareOrDownload(new Blob([text], { type: "application/json" }), `bonus-navigator-backup-${new Date().toISOString().slice(0, 10)}.json`, "Резервная копия продаж"); setStatus("Экспорт данных готов."); } catch (error) { setStatus(error.message, true); } });
@@ -396,6 +429,7 @@ function bindEvents() {
 
 async function init() {
     try { sales = await getAllSales(); } catch (error) { console.error(error); setStatus("Локальное хранилище продаж недоступно.", true); }
+    try { await synchronizeSaleCategories(); } catch (error) { console.warn("Категории продаж оставлены без изменений:", error); }
     const userName = loadSavedUserName() || "Пользователь";
     $("dashboardUser").textContent = userName;
     $("dashboardAvatar").textContent = userInitials(userName);
@@ -413,7 +447,6 @@ async function init() {
     if ($("salesDateFrom").value && $("salesDateTo").value && $("salesDateFrom").value > $("salesDateTo").value) $("salesDateTo").value = $("salesDateFrom").value;
     writeLocalValue(SALES_DATE_FROM_FILTER_KEY, $("salesDateFrom").value);
     writeLocalValue(SALES_DATE_TO_FILTER_KEY, $("salesDateTo").value);
-    try { $("hideZeroPrice").checked = localStorage.getItem(HIDE_ZERO_PRICE_STORAGE_KEY) === "1"; $("hideNoStock").checked = localStorage.getItem(HIDE_NO_STOCK_STORAGE_KEY) === "1"; } catch (error) { console.warn("Не удалось прочитать фильтры каталога:", error); }
     initThemeManager(); initReportPasswordModal(); bindEvents(); render();
     showPage(readLocalValue(DASHBOARD_PAGE_STORAGE_KEY));
     initVersionManager(); void initRegions();

@@ -6,6 +6,7 @@ import { fetchCatalog } from "../stock/stock-api.js";
 import { buildItem } from "./catalog-items.js";
 import { syncMonthSelector } from "../ui/drawers.js";
 import { createCategoryList, renderCards, updateStarsButtons } from "../ui/grid.js";
+import { normalizeCatalogCategory } from "./category-names.js";
 
 /** Проверяет серверный каталог и не пропускает повреждённые/дублирующиеся карточки в UI. */
 function normalizeCatalogProducts(products) {
@@ -23,7 +24,7 @@ function normalizeCatalogProducts(products) {
         normalized.push({
             article,
             title,
-            category: String(product?.category || "Без категории").trim() || "Без категории",
+            category: normalizeCatalogCategory(product?.category),
             commissionRow: Array.isArray(product?.commissionRow) ? product.commissionRow : [],
         });
     }

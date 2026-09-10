@@ -1,6 +1,6 @@
 import { dom } from "../dom.js";
 import { state } from "../state.js";
-import { HIDE_NO_STOCK_STORAGE_KEY, HIDE_ZERO_PRICE_STORAGE_KEY } from "../config.js";
+import { HIDE_NO_STOCK_STORAGE_KEY } from "../config.js";
 import { loadSavedUserName, renderCurrentUserName } from "../auth/device-auth.js";
 import {
     buildRegionCityModel,
@@ -15,17 +15,16 @@ import { syncCurrentRegionStock } from "../stock/stock-sync.js";
 import { setProfileStatus } from "./profile-status.js";
 
 /**
- * Личный кабинет: модальное окно, фильтры (скрыть нулевую цену/нет остатка), инициализация региона.
+ * Настройки каталога: выбранный регион и режим отображения остатков.
  */
 
-/** Читает сохранённые переключатели фильтров личного кабинета. */
+/** Читает сохранённый режим отображения остатков. */
 export function loadProfileFilters() {
     try {
-        state.hideZeroPrice = localStorage.getItem(HIDE_ZERO_PRICE_STORAGE_KEY) === "1";
+        localStorage.removeItem("bn_hide_zero_price_v1");
         state.hideNoStock = localStorage.getItem(HIDE_NO_STOCK_STORAGE_KEY) === "1";
     } catch (error) {
-        console.warn("Не удалось прочитать фильтры личного кабинета:", error);
-        state.hideZeroPrice = false;
+        console.warn("Не удалось прочитать режим отображения остатков:", error);
         state.hideNoStock = false;
     }
 }

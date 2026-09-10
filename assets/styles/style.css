@@ -183,12 +183,15 @@ body.auth-locked #viewer{
     border-radius:999px;
     background:rgba(255,255,255,.08);
     color:var(--text);
-    font-size:.88rem;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font:inherit;
     white-space:nowrap;
     max-width:48vw;
     overflow:hidden;
     text-overflow:ellipsis;
-    text-align:right;
+    text-align:left;
     cursor:pointer;
     transition:background-color .2s ease, border-color .2s ease;
 }
@@ -198,6 +201,11 @@ body.auth-locked #viewer{
     border-color:rgba(255,255,255,.3);
 }
 
+.current-user-icon{width:21px;height:21px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.current-user-copy{display:grid;min-width:0;line-height:1.1}
+.current-user-label{font-size:.72rem;font-weight:800;color:var(--text)}
+.current-user-name{margin-top:3px;overflow:hidden;color:var(--muted);font-size:.68rem;text-overflow:ellipsis}
+
 .current-user.hidden{
     display:none;
 }
@@ -206,19 +214,19 @@ body.auth-locked #viewer{
     .current-user{
         margin-right:8px;
         padding:6px 8px;
-        font-size:.72rem;
         max-width:64vw;
         white-space:normal;
         overflow:visible;
         text-overflow:clip;
-        line-height:1.15;
-        text-align:right;
+        text-align:left;
     }
+    .current-user-icon{width:18px;height:18px}
+    .current-user-label{font-size:.65rem}
+    .current-user-name{font-size:.6rem}
 }
 
 @media(max-width:380px){
     .current-user{
-        font-size:.66rem;
         max-width:66vw;
     }
 }
@@ -226,6 +234,7 @@ body.auth-locked #viewer{
 .categories-toggle-side,
 .month-toggle-side,
 .sort-price-side,
+.stock-filter-side,
 .reset-filters-side{
     width:52px;
     height:44px;
@@ -281,6 +290,7 @@ body.auth-locked #viewer{
 .categories-toggle-side:hover,
 .month-toggle-side:hover,
 .sort-price-side:hover,
+.stock-filter-side:hover,
 .reset-filters-side:hover{
     background:rgba(255,255,255,.12);
     border-color:rgba(255,255,255,.22);
@@ -291,11 +301,13 @@ body.auth-locked #viewer{
 .categories-toggle-side:active,
 .month-toggle-side:active,
 .sort-price-side:active,
+.stock-filter-side:active,
 .reset-filters-side:active{
     transform:scale(.98);
 }
 
-.sort-price-side.active{
+.sort-price-side.active,
+.stock-filter-side.active{
     background:var(--primary-soft);
     border-color:hsl(var(--accent-hue) 100% 59% / .55);
     color:var(--primary-light);
@@ -312,6 +324,7 @@ body.auth-locked #viewer{
 .categories-toggle-side:focus-visible,
 .month-toggle-side:focus-visible,
 .sort-price-side:focus-visible,
+.stock-filter-side:focus-visible,
 .reset-filters-side:focus-visible,
 .current-user:focus-visible,
 .categoryButton:focus-visible,
@@ -1091,6 +1104,7 @@ body.auth-locked #viewer{
     .categories-toggle-side,
     .month-toggle-side,
     .sort-price-side,
+    .stock-filter-side,
     .reset-filters-side{
         width:36px;
         height:32px;
@@ -1104,6 +1118,7 @@ body.auth-locked #viewer{
     .categories-toggle-side:hover,
     .month-toggle-side:hover,
     .sort-price-side:hover,
+    .stock-filter-side:hover,
     .reset-filters-side:hover{
         background:hsl(var(--accent-hue) 100% 59% / .2);
         border-color:hsl(var(--accent-hue) 100% 59% / .5);
@@ -1112,6 +1127,7 @@ body.auth-locked #viewer{
     .categories-toggle-side:active,
     .month-toggle-side:active,
     .sort-price-side:active,
+    .stock-filter-side:active,
     .reset-filters-side:active{
         transform:scale(.95);
     }
@@ -1223,6 +1239,7 @@ body.auth-locked #viewer{
     .categories-toggle-side:hover,
     .month-toggle-side:hover,
     .sort-price-side:hover,
+    .stock-filter-side:hover,
     .reset-filters-side:hover,
     .scroll-top:hover,
     .search-bar .scan-qr-btn:hover{
@@ -1815,19 +1832,6 @@ select.auth-input optgroup{
     display:grid;
     gap:8px;
     margin-top:2px;
-}
-
-.profile-check{
-    display:flex;
-    align-items:center;
-    gap:8px;
-    color:var(--text);
-    font-size:.9rem;
-}
-
-.profile-check input{
-    width:16px;
-    height:16px;
 }
 
 .card-sale-btn{

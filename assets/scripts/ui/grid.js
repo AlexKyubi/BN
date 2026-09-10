@@ -226,10 +226,6 @@ function updateSummary(total) {
         filters.push("Цена: по возрастанию");
     }
 
-    if (state.hideZeroPrice) {
-        filters.push("Без товаров с ценой 0");
-    }
-
     if (state.hideNoStock) {
         filters.push("Только товары с остатками");
     }
@@ -252,10 +248,6 @@ function filterItems(stockItems) {
             return item.title.toLowerCase().includes(query)
                 || item.article.toLowerCase().includes(query)
                 || item.category.toLowerCase().includes(query);
-        }
-
-        if (state.hideZeroPrice && stockRecord && Number(stockRecord.price || 0) <= 0) {
-            return false;
         }
 
         if (state.hideNoStock) {
@@ -325,6 +317,16 @@ export function updateSortPriceButton() {
     dom.sortPriceBtn.classList.toggle("sort-asc", state.priceSort === "asc");
 }
 
+/** Обновляет кнопку режима показа товаров с остатками. */
+export function updateStockFilterButton() {
+    if (!dom.stockFilterBtn) return;
+    const onlyAvailable = state.hideNoStock;
+    dom.stockFilterBtn.title = onlyAvailable ? "Показываются только товары с остатками" : "Показываются все товары";
+    dom.stockFilterBtn.setAttribute("aria-pressed", onlyAvailable ? "true" : "false");
+    dom.stockFilterBtn.setAttribute("aria-label", onlyAvailable ? "Показать все товары" : "Показывать только товары с остатками");
+    dom.stockFilterBtn.classList.toggle("active", onlyAvailable);
+}
+
 /** Полностью перерисовывает сетку карточек согласно текущим фильтрам. */
 export function renderCards() {
     // Один раз берём словарь остатков для всего прохода. Раньше каждый товар заново
@@ -344,8 +346,8 @@ export function renderCards() {
 
         const description = document.createElement("div");
         description.className = "empty-text";
-        description.textContent = state.hideZeroPrice || state.hideNoStock
-            ? "Измените поиск, сбросьте фильтры или проверьте настройки каталога в личном кабинете."
+        description.textContent = state.hideNoStock
+            ? "В выбранных фильтрах нет товаров с остатками. Переключите режим показа или сбросьте фильтры."
             : "Попробуйте изменить поиск или очистить фильтры.";
 
         emptyState.append(title, description);

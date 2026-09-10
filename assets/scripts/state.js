@@ -20,7 +20,6 @@ export const state = {
     regionsModel: null,
     stockCache: { regions: {} },
     stockSyncTokens: {},
-    hideZeroPrice: false,
     hideNoStock: false,
     // Сортировка по цене: "none" | "desc" | "asc".
     priceSort: "none",

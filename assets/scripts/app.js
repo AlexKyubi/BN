@@ -19,7 +19,7 @@
 
 import { dom } from "./dom.js";
 import { state } from "./state.js";
-import { DASHBOARD_FAST_RETURN_KEY, DASHBOARD_RETURN_MARKER_KEY, DEFAULT_MONTH_COLUMN_INDEX } from "./config.js";
+import { DASHBOARD_FAST_RETURN_KEY, DASHBOARD_RETURN_MARKER_KEY, DEFAULT_MONTH_COLUMN_INDEX, HIDE_NO_STOCK_STORAGE_KEY } from "./config.js";
 import { normalizeCatalogSearchInput, normalizeGoogleSheetCsvUrl } from "./utils.js";
 import {
     clearAuthError,
@@ -41,7 +41,7 @@ import { syncCurrentRegionStock } from "./stock/stock-sync.js";
 import { initProfileCabinet, loadProfileFilters } from "./profile/profile-cabinet.js";
 import { hasUsableQuickReturnState, hydrateCatalogUiState, hydrateQuickReturnState, saveCatalogUiState, saveQuickReturnState } from "./quick-return.js";
 import { closeCategoryDrawer, closeMonthDrawer, openCategoryDrawer, openMonthDrawer, syncMonthSelector } from "./ui/drawers.js";
-import { createCategoryList, renderCards, updateCategoryButtons, updateSortPriceButton, updateStarsButtons } from "./ui/grid.js";
+import { createCategoryList, renderCards, updateCategoryButtons, updateSortPriceButton, updateStarsButtons, updateStockFilterButton } from "./ui/grid.js";
 import { hideViewer } from "./ui/viewer.js";
 import { initPwaInstall } from "./pwa/install.js";
 import { initReportPasswordModal } from "./ui/password-prompt.js";
@@ -70,6 +70,7 @@ async function startApp({ fastReturn = false } = {}) {
     // быстрого возврата, который не запускает полную инициализацию профиля.
     loadProfileFilters();
     updateSortPriceButton();
+    updateStockFilterButton();
 
     const restored = hydrateQuickReturnState();
     if (restored) {
@@ -77,6 +78,7 @@ async function startApp({ fastReturn = false } = {}) {
         updateCategoryButtons();
         updateStarsButtons();
         updateSortPriceButton();
+        updateStockFilterButton();
         syncMonthSelector();
         renderCards();
     }
@@ -110,6 +112,7 @@ async function startApp({ fastReturn = false } = {}) {
         updateCategoryButtons();
         updateStarsButtons();
         updateSortPriceButton();
+        updateStockFilterButton();
         renderCards();
     }
     saveCatalogUiState();
@@ -121,6 +124,8 @@ function resetAllFilters() {
     state.activeStars = 0;
     state.searchQuery = "";
     state.priceSort = "none";
+    state.hideNoStock = false;
+    try { localStorage.setItem(HIDE_NO_STOCK_STORAGE_KEY, "0"); } catch (error) { console.warn("Не удалось сбросить режим остатков:", error); }
 
     if (dom.search) {
         dom.search.value = "";
@@ -132,6 +137,7 @@ function resetAllFilters() {
     updateCategoryButtons();
     updateStarsButtons();
     updateSortPriceButton();
+    updateStockFilterButton();
     closeCategoryDrawer();
     closeMonthDrawer();
     saveCatalogUiState();
@@ -375,11 +381,14 @@ function bindEvents() {
             window.location.assign("dashboard.html");
         };
         dom.currentUser.addEventListener("click", openDashboard);
-        dom.currentUser.addEventListener("keydown", (event) => {
-            if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                openDashboard();
-            }
+    }
+    if (dom.stockFilterBtn) {
+        dom.stockFilterBtn.addEventListener("click", () => {
+            state.hideNoStock = !state.hideNoStock;
+            try { localStorage.setItem(HIDE_NO_STOCK_STORAGE_KEY, state.hideNoStock ? "1" : "0"); } catch (error) { console.warn("Не удалось сохранить режим остатков:", error); }
+            updateStockFilterButton();
+            renderCards();
+            saveCatalogUiState();
         });
     }
 

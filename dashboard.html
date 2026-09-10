@@ -6,7 +6,7 @@
     <title>Личный кабинет — Bonus Navigator</title>
     <meta name="theme-color" content="#0b111d">
     <meta name="description" content="Bonus Navigator — личный кабинет и аналитика продаж">
-    <link rel="manifest" href="./public/manifest.json?v=1.4.3">
+    <link rel="manifest" href="./public/manifest.json?v=1.4.4">
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%232d7dff' width='192' height='192'/><text x='96' y='130' font-size='100' font-weight='bold' fill='white' text-anchor='middle'>BN</text></svg>">
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%232d7dff' width='192' height='192'/><text x='96' y='130' font-size='100' font-weight='bold' fill='white' text-anchor='middle'>BN</text></svg>">
     <script>
@@ -24,7 +24,7 @@
             window.location.replace("index.html");
         }
     </script>
-    <link rel="stylesheet" href="assets/styles/style.css?v=1.4.3">
+    <link rel="stylesheet" href="assets/styles/style.css?v=1.4.4">
     <style>
         .dashboard-shell{max-width:1180px;margin:0 auto;padding:18px 16px 96px}
         .dashboard-header{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:15px 18px;border:1px solid var(--border);border-radius:0 0 18px 18px;background:linear-gradient(135deg,rgba(10,14,24,.96),rgba(18,24,38,.92));backdrop-filter:blur(16px);box-shadow:var(--shadow)}
@@ -63,8 +63,9 @@
         .panel-title{font-size:1rem;font-weight:800}
         .panel-subtitle{margin-top:4px;color:var(--muted);font-size:.76rem}
         .text-button{border:0;background:transparent;color:var(--primary-light);font:inherit;font-size:.78rem;font-weight:700;white-space:nowrap}
-        .chart{display:flex;align-items:flex-end;gap:8px;height:180px;padding-top:18px;border-bottom:1px solid var(--border)}
-        .chart-column{display:flex;flex:1;flex-direction:column;align-items:center;justify-content:flex-end;gap:8px;height:100%;min-width:0}
+        .chart{height:180px;overflow-x:auto;overflow-y:hidden;padding-top:18px;border-bottom:1px solid var(--border);scrollbar-width:thin}
+        .chart-track{display:flex;align-items:flex-end;gap:4px;width:max(100%,620px);height:100%}
+        .chart-column{display:flex;flex:1;flex-direction:column;align-items:center;justify-content:flex-end;gap:8px;height:100%;min-width:16px}
         .bar{width:min(100%,28px);min-height:8px;border-radius:8px 8px 3px 3px;background:linear-gradient(180deg,var(--primary-light),var(--primary-dark));box-shadow:0 0 18px hsl(var(--accent-hue) 100% 59% / .22)}
         .chart-column.is-today .bar{background:linear-gradient(180deg,hsl(var(--accent-hue) 100% 82%),var(--primary));box-shadow:0 0 20px hsl(var(--accent-hue) 100% 64% / .52)}
         .chart-column span{color:var(--muted);font-size:.66rem}
@@ -124,6 +125,7 @@
         .sales-filter-row{display:grid;grid-template-columns:minmax(180px,1fr) minmax(150px,.55fr) minmax(150px,.55fr);gap:10px;margin-bottom:14px}
         .sales-filter-field{display:grid;gap:6px;min-width:0}
         .sales-filter-field>span{color:var(--muted);font-size:.72rem;font-weight:700}
+        .sales-filter-field input[type="date"]{cursor:pointer;color-scheme:dark}
         .sales-period-total{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:14px;padding:15px 0 2px;border-top:1px solid var(--border)}
         .sales-period-total>span{color:var(--muted);font-size:.78rem}
         .sales-period-total strong{font-size:1.15rem;text-align:right}
@@ -239,8 +241,6 @@
                         <select id="profileRegion" class="region-select" aria-label="Регион каталога"><option>Загрузка…</option></select>
                         <select id="profileCity" class="region-select" aria-label="Магазин"><option>Загрузка…</option></select>
                         <p id="profileSyncStatus" class="profile-sync-status" aria-live="polite"></p>
-                        <label class="profile-check"><input id="hideZeroPrice" type="checkbox"><span>Не показывать товары с ценой 0</span></label>
-                        <label class="profile-check"><input id="hideNoStock" type="checkbox"><span>Показывать только товары с остатками</span></label>
                         <button id="downloadStockReportBtn" class="text-button button-with-icon" type="button"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>Скачать отчёт по остаткам</button>
                     </div>
                 </section>
@@ -256,7 +256,7 @@
                 </section>
 
                 <section class="panel transfer-panel profile-update" aria-labelledby="appVersionTitle">
-                    <div class="profile-update-copy"><strong id="appVersionTitle">Версия приложения</strong><span id="appVersionStatus" class="profile-version">Фронт 1.4.3</span><span id="appUpdateStatus" class="profile-update-status" aria-live="polite"></span></div>
+                    <div class="profile-update-copy"><strong id="appVersionTitle">Версия приложения</strong><span id="appVersionStatus" class="profile-version">Фронт 1.4.4</span><span id="appUpdateStatus" class="profile-update-status" aria-live="polite"></span></div>
                     <button id="updateAppBtn" type="button" class="btn-primary button-with-icon hidden"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>Обновиться</button>
                 </section>
             </div>
@@ -320,6 +320,6 @@
         <button id="navOverview" class="active" type="button"><span class="nav-icon"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span><span>Обзор</span></button>
         <button id="navSales" type="button"><span class="nav-icon"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><circle cx="3" cy="6" r="1"/><circle cx="3" cy="12" r="1"/><circle cx="3" cy="18" r="1"/></svg></span><span>Продажи</span></button>
     </nav>
-    <script type="module" src="assets/scripts/sales/dashboard.js?v=1.4.3"></script>
+    <script type="module" src="assets/scripts/sales/dashboard.js?v=1.4.4"></script>
 </body>
 </html>

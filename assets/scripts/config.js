@@ -28,14 +28,13 @@ export const ACCESS_TOKEN_STORAGE_KEY = "bn_access_token_v1";
 /** Ключи localStorage для выбранных региона/города личного кабинета. */
 export const PROFILE_REGION_STORAGE_KEY = "bn_profile_region_v1";
 export const PROFILE_CITY_STORAGE_KEY = "bn_profile_city_v1";
-/** Ключи localStorage для переключателей фильтров личного кабинета. */
-export const HIDE_ZERO_PRICE_STORAGE_KEY = "bn_hide_zero_price_v1";
+/** Ключ localStorage для режима отображения товаров с остатками. */
 export const HIDE_NO_STOCK_STORAGE_KEY = "bn_hide_no_stock_v1";
 export const ACTIVE_MONTH_INDEX_STORAGE_KEY = "bn_active_month_index_v1";
 export const ACTIVE_MONTH_LABEL_STORAGE_KEY = "bn_active_month_label_v1";
 
 /** Версии и настройки безопасной проверки обновлений. */
-export const FRONTEND_VERSION = "1.4.3";
+export const FRONTEND_VERSION = "1.4.4";
 export const HEALTH_PATH = "/health";
 export const VERSION_CHECK_TIMEOUT_MS = 10_000;
 export const ACKNOWLEDGED_BACKEND_VERSION_KEY = "bn_acknowledged_backend_version_v1";

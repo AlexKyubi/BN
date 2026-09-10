@@ -97,14 +97,9 @@ export function renderCurrentUserName(fullName) {
     }
 
     const city = getCurrentCityDisplay();
-    if (city) {
-        dom.currentUser.innerHTML = `${escapeHtml(safeName)}<br><span class="current-user-city">${escapeHtml(city)}</span>`;
-    } else {
-        dom.currentUser.textContent = `Пользователь: ${safeName}`;
-    }
+    const userDetails = city ? `${safeName} · ${city}` : safeName;
+    dom.currentUser.innerHTML = `<svg class="current-user-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M20 21a8 8 0 0 0-16 0M12 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z"/></svg><span class="current-user-copy"><span class="current-user-label">Личный кабинет</span><span class="current-user-name">${escapeHtml(userDetails)}</span></span>`;
     dom.currentUser.title = "Открыть личный кабинет";
-    dom.currentUser.setAttribute("role", "button");
-    dom.currentUser.setAttribute("tabindex", "0");
     dom.currentUser.classList.remove("hidden");
 }
 
