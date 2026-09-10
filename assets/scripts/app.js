@@ -38,7 +38,7 @@ import { validateSheetUrlWithServer } from "./auth/sheet-auth.js";
 import { loadProducts, rebuildItemsFromCatalog } from "./catalog/catalog-source.js";
 import { closeStockInfoModal } from "./stock/stock-info-modal.js";
 import { syncCurrentRegionStock } from "./stock/stock-sync.js";
-import { initProfileCabinet } from "./profile/profile-cabinet.js";
+import { initProfileCabinet, loadProfileFilters } from "./profile/profile-cabinet.js";
 import { hasUsableQuickReturnState, hydrateCatalogUiState, hydrateQuickReturnState, saveCatalogUiState, saveQuickReturnState } from "./quick-return.js";
 import { closeCategoryDrawer, closeMonthDrawer, openCategoryDrawer, openMonthDrawer, syncMonthSelector } from "./ui/drawers.js";
 import { createCategoryList, renderCards, updateCategoryButtons, updateSortPriceButton, updateStarsButtons } from "./ui/grid.js";
@@ -66,6 +66,9 @@ async function startApp({ fastReturn = false } = {}) {
     state.appStarted = true;
     bindEvents();
     hydrateCatalogUiState();
+    // Настройки меняются на dashboard, поэтому читаем их до возможного
+    // быстрого возврата, который не запускает полную инициализацию профиля.
+    loadProfileFilters();
     updateSortPriceButton();
 
     const restored = hydrateQuickReturnState();
@@ -394,6 +397,10 @@ function bindEvents() {
         // одноразовый флаг нужно погасить здесь, чтобы обычное обновление уже
         // выполнило штатную проверку версии каталога и авторизации.
         if (!event.persisted) return;
+        // BFCache возвращает уже существующий JS-контекст. Перечитываем
+        // изменённые на dashboard фильтры и применяем их к сохранённому DOM.
+        loadProfileFilters();
+        renderCards();
         try {
             sessionStorage.removeItem(DASHBOARD_FAST_RETURN_KEY);
         } catch (error) {
