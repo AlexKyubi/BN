@@ -66,6 +66,7 @@ export const dom = {
     saleForm: document.getElementById("saleForm"),
     saleProductTitle: document.getElementById("saleProductTitle"),
     saleProductArticle: document.getElementById("saleProductArticle"),
+    saleDate: document.getElementById("saleDate"),
     salePrice: document.getElementById("salePrice"),
     saleQuantity: document.getElementById("saleQuantity"),
     saleCalculation: document.getElementById("saleCalculation"),
